@@ -90,7 +90,7 @@ class _Achievements extends StatelessWidget {
   final String language; const _Achievements({required this.language});
   @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(20),children:[
     Text(AppText.get('achievements',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const SizedBox(height:18),
-    ...achievements.map((a){final k=a.keys.first;return Card(child:ListTile(leading:CircleAvatar(child:Text(k)),title:Text(a[k]!),subtitle:Text(AppText.get('continue',language)));}),
+    ...achievements.map((a){final k=a.keys.first;return Card(child:ListTile(leading:CircleAvatar(child:Text(k)),title:Text(a[k]!),subtitle:Text(AppText.get('continue',language))));}),
   ]);
 }
 class _Profile extends StatelessWidget {
