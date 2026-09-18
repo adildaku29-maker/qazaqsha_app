@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
-import 'models/app_models.dart';
+import 'theme/app_theme.dart';
+import 'services/user_profile_service.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/onboarding_screen.dart';
-import 'services/storage_service.dart';
-import 'theme/app_theme.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  final player = await StorageService.getPlayer();
-  runApp(QazaqshaApp(initialPlayer: player));
+  runApp(const QazaqshaApp());
 }
 
 class QazaqshaApp extends StatelessWidget {
-  final Player? initialPlayer;
-  const QazaqshaApp({super.key, this.initialPlayer});
+  const QazaqshaApp({super.key});
+  @override Widget build(BuildContext context)=>MaterialApp(
+    debugShowCheckedModeBanner:false,
+    title:'Qazaqsha',
+    theme:AppTheme.dark(),
+    home:const _Startup(),
+  );
+}
 
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Qazaqsha',
-        theme: AppTheme.theme,
-        home: initialPlayer == null
-            ? const OnboardingScreen()
-            : MainNavigationScreen(player: initialPlayer!),
-      );
+class _Startup extends StatelessWidget {
+  const _Startup();
+  @override Widget build(BuildContext context)=>FutureBuilder<bool>(
+    future:UserProfileService().isRegistered,
+    builder:(context,snapshot){
+      if(!snapshot.hasData)return const Scaffold(body:Center(child:CircularProgressIndicator()));
+      return snapshot.data!?const MainNavigationScreen():const OnboardingScreen();
+    },
+  );
 }

@@ -1,87 +1,106 @@
 import 'package:flutter/material.dart';
-import '../data/lessons_data.dart';
-import '../models/app_models.dart';
-import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
-import 'duo_lesson_screen.dart';
-import 'onboarding_screen.dart';
+import '../data/qazaqsha_content.dart';
+import '../services/storage_service.dart';
+import '../services/user_profile_service.dart';
+import '../ui/app_text.dart';
+import 'lesson_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  final Player player;
-  const MainNavigationScreen({super.key, required this.player});
-  @override State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  const MainNavigationScreen({super.key});
+  @override State<MainNavigationScreen> createState()=>_MainNavigationScreenState();
 }
-
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int index = 0;
-  late Player player;
-  @override void initState() { super.initState(); player = widget.player; }
-
-  Future<void> refresh() async { final p = await StorageService.getPlayer(); if (p != null && mounted) setState(() => player = p); }
-
-  @override Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(child: IndexedStack(index: index, children: [_home(), _progress(), _profile()])),
-    bottomNavigationBar: NavigationBar(selectedIndex: index, onDestinationSelected: (i) => setState(() => index = i), destinations: const [NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Главная'), NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Герой'), NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Профиль')]),
+  int tab=0; final storage=StorageService();
+  @override Widget build(BuildContext context)=>FutureBuilder<UserProfile>(
+    future:UserProfileService().profile,
+    builder:(context,s){
+      final p=s.data??const UserProfile(nickname:'',language:'ru',character:'🦅');
+      final pages=[_Home(storage:storage,profile:p),_Lessons(language:p.language),_Achievements(language:p.language),_Profile(profile:p)];
+      return Scaffold(body:SafeArea(child:pages[tab]),bottomNavigationBar:NavigationBar(
+        selectedIndex:tab,onDestinationSelected:(i)=>setState(()=>tab=i),
+        destinations:[
+          NavigationDestination(icon:const Icon(Icons.home_outlined),selectedIcon:const Icon(Icons.home),label:AppText.get('home',p.language)),
+          NavigationDestination(icon:const Icon(Icons.menu_book_outlined),selectedIcon:const Icon(Icons.menu_book),label:AppText.get('lessons',p.language)),
+          NavigationDestination(icon:const Icon(Icons.emoji_events_outlined),selectedIcon:const Icon(Icons.emoji_events),label:AppText.get('achievements',p.language)),
+          NavigationDestination(icon:const Icon(Icons.person_outline),selectedIcon:const Icon(Icons.person),label:AppText.get('profile',p.language)),
+        ],
+      ));
+    },
   );
-
-  Widget _topStats() => Row(children: [Expanded(child: _stat('🔥', '${player.streak}', 'серия')), Expanded(child: _stat('⚡', '${player.xp}', 'XP')), Expanded(child: _stat('❤️', '${player.hearts}', 'сердца'))]);
-  Widget _stat(String icon, String value, String label) => Column(children: [Text('$icon $value', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12))]);
-
-  Widget _home() => RefreshIndicator(onRefresh: refresh, child: ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 28), children: [
-    Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Сәлем, ${player.nickname}! 👋', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)), const Text('Бүгін қазақша сөйлейміз', style: TextStyle(color: Colors.grey))])), Text(player.avatarEmoji, style: const TextStyle(fontSize: 42))]),
-    const SizedBox(height: 18), Card(child: Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: _topStats())), const SizedBox(height: 18),
-    const Text('Путь обучения', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), const SizedBox(height: 6), const Text('10 уроков • базовый уровень → культура', style: TextStyle(color: Colors.grey)), const SizedBox(height: 14),
-    ...allLessons.map((l) => _lessonTile(l)),
-  ]));
-
-  Widget _lessonTile(Lesson l) {
-    final done = player.isCompleted(l.id);
-    final locked = l.id > 1 && !player.isCompleted(l.id - 1);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: CircleAvatar(
-          radius: 27,
-          backgroundColor: done
-              ? AppTheme.primary.withOpacity(.12)
-              : Colors.grey.withOpacity(.1),
-          child: Text(l.icon, style: const TextStyle(fontSize: 26)),
-        ),
-        title: Text(
-          '${l.id}. ${l.title}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text('${l.category} • ${l.questions.length} заданий'),
-        trailing: Icon(
-          done
-              ? Icons.check_circle
-              : locked
-                  ? Icons.lock_outline
-                  : Icons.arrow_forward_ios,
-          color: done ? AppTheme.primary : Colors.grey,
-        ),
-        onTap: locked
-            ? null
-            : () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DuoLessonScreen(
-                      player: player,
-                      lesson: l,
-                    ),
-                  ),
-                );
-                await refresh();
-              },
-      ),
-    );
-  }
-
-  Widget _progress() { final progress = player.completedLessonsCount / allLessons.length; return ListView(padding: const EdgeInsets.all(22), children: [Center(child: Text(player.avatarEmoji, style: const TextStyle(fontSize: 82))), Center(child: Text(player.rankIcon + '  ${player.rankTitle}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold))), const SizedBox(height: 18), Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [Text('${player.xp} XP', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)), const SizedBox(height: 8), LinearProgressIndicator(value: progress.clamp(0, 1).toDouble(), minHeight: 10, borderRadius: BorderRadius.circular(10)), const SizedBox(height: 8), Text('${player.completedLessonsCount} из ${allLessons.length} уроков завершено')]))), const SizedBox(height: 20), const Text('Эволюция героя', style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold)), const SizedBox(height: 10), _rank('🌱', 'Бала', '0–499 XP', player.xp < 500), _rank('🧑', 'Жігіт / Ару', '500–1499 XP', player.xp >= 500 && player.xp < 1500), _rank('🛡️', 'Қайсар', '1500–2999 XP', player.xp >= 1500 && player.xp < 3000), _rank('⚔️', 'Батыр', '3000+ XP', player.xp >= 3000)]); }
-  Widget _rank(String icon, String title, String xp, bool active) => Card(color: active ? AppTheme.primary.withOpacity(.08) : null, child: ListTile(leading: Text(icon, style: const TextStyle(fontSize: 30)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text(xp), trailing: active ? const Icon(Icons.check_circle, color: AppTheme.primary) : null));
-
-  Widget _profile() => ListView(padding: const EdgeInsets.all(22), children: [Center(child: Text(player.avatarEmoji, style: const TextStyle(fontSize: 80))), Center(child: Text(player.nickname, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold))), Center(child: Text('Подсказки: ${player.hintLanguage == 'ru' ? 'Русский' : 'English'}', style: const TextStyle(color: Colors.grey))), const SizedBox(height: 24), Card(child: Column(children: [ListTile(leading: const Icon(Icons.bolt), title: const Text('Опыт'), trailing: Text('${player.xp} XP')), ListTile(leading: const Icon(Icons.menu_book), title: const Text('Уроки'), trailing: Text('${player.completedLessonsCount}/10')), ListTile(leading: const Icon(Icons.local_fire_department), title: const Text('Серия'), trailing: Text('${player.streak} дней'))])), const SizedBox(height: 20), OutlinedButton.icon(onPressed: () async { await StorageService.clearPlayer(); if (!mounted) return; Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const OnboardingScreen()), (_) => false); }, icon: const Icon(Icons.restart_alt), label: const Text('Сбросить прогресс'))]);
 }
+class _Home extends StatelessWidget {
+  final StorageService storage; final UserProfile profile;
+  const _Home({required this.storage,required this.profile});
+  @override Widget build(BuildContext context)=>FutureBuilder<List<dynamic>>(
+    future:Future.wait<dynamic>([storage.xp,storage.streak,storage.lessons]),
+    builder:(context,snapshot){
+      final v=snapshot.data??<dynamic>[0,1,0]; final l=profile.language;
+      return ListView(padding:const EdgeInsets.fromLTRB(20,18,20,30),children:[
+        Row(children:[
+          Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('${AppText.get('welcome',l)}, ${profile.nickname}! 👋',style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900)),
+            Text(AppText.get('learn',l),style:const TextStyle(color:AppColors.muted)),
+          ])),
+          Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(18)),child:Text('${profile.character} 🔥 ${v[1]}',style:const TextStyle(fontWeight:FontWeight.w800))),
+        ]),
+        const SizedBox(height:22),
+        Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[AppColors.navy2,Color(0xFF0B4A4B)]),borderRadius:BorderRadius.circular(28)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text(AppText.get('mission',l),style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+          const SizedBox(height:10),const Text('10 минут қазақша',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
+          const SizedBox(height:15),const LinearProgressIndicator(value:.62,minHeight:9),const SizedBox(height:9),
+          Text('${v[0]} XP • ${v[2]} ${AppText.get('lesson',l)}',style:const TextStyle(color:AppColors.muted)),
+        ])),
+        const SizedBox(height:18),
+        const SizedBox(height:18),
+        const SizedBox(height:20),Text(AppText.get('path',l),style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+        Text(AppText.get('lessons_sub',l),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:10),
+        ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
+          onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:t.title,level:t.level))),
+          tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
+          leading:Text(t.emoji,style:const TextStyle(fontSize:28)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),
+          subtitle:Text('${t.level} • ${t.words.length} ${AppText.get('words',l)}'),
+          trailing:Text('+${t.xp} XP',style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+        ))),
+      ]);
+    },
+  );
+}
+class _Lessons extends StatelessWidget {
+  final String language; const _Lessons({required this.language});
+  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(20),children:[
+    Text(AppText.get('lessons',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),
+    Text(AppText.get('lessons_sub',language),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),
+    ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
+      onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:t.title,level:t.level))),
+      tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
+      leading:Text(t.emoji,style:const TextStyle(fontSize:30)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),
+      subtitle:Text(t.subtitle),trailing:Text(t.level,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+    ))),
+  ]);
+}
+class _Achievements extends StatelessWidget {
+  final String language; const _Achievements({required this.language});
+  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(20),children:[
+    Text(AppText.get('achievements',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const SizedBox(height:18),
+    ...achievements.map((a){final k=a.keys.first;return Card(child:ListTile(leading:CircleAvatar(child:Text(k)),title:Text(a[k]!),subtitle:Text(AppText.get('continue',language))));}),
+  ]);
+}
+class _Profile extends StatelessWidget {
+  final UserProfile profile; const _Profile({required this.profile});
+  @override Widget build(BuildContext context)=>FutureBuilder<List<dynamic>>(
+    future:Future.wait<dynamic>([StorageService().xp,StorageService().lessons,StorageService().words]),
+    builder:(context,snapshot){final v=snapshot.data??<dynamic>[0,0,0];return ListView(padding:const EdgeInsets.all(20),children:[
+      CircleAvatar(radius:48,backgroundColor:AppColors.card,child:Text(profile.character,style:const TextStyle(fontSize:42))),
+      const SizedBox(height:14),Center(child:Text(profile.nickname,style:const TextStyle(fontSize:25,fontWeight:FontWeight.w900))),
+      Center(child:Text('Qazaqsha • ${profile.language.toUpperCase()}',style:const TextStyle(color:AppColors.muted))),const SizedBox(height:25),
+      Row(children:[_metric('XP',v[0].toString()),_metric(AppText.get('lesson',profile.language),v[1].toString()),_metric(AppText.get('words',profile.language),v[2].toString())]),const SizedBox(height:22),
+      Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(24)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Батыр жолы',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:10),
+        Text('${profile.character} Бастауыш батыр'),const Text('Келесі деңгей: Момышұлы',style:TextStyle(color:AppColors.gold)),
+        const SizedBox(height:14),const LinearProgressIndicator(value:.28),
+      ])),
+    ]);},
+  );
+}
+Widget _metric(String a,String b)=>Expanded(child:Container(margin:const EdgeInsets.only(right:7),padding:const EdgeInsets.all(15),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),child:Column(children:[Text(b,style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),Text(a,style:const TextStyle(color:AppColors.muted))])));

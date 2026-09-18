@@ -1,16 +1,18 @@
 name: qazaq_tili
-description: Qazaqsha — интерактивное изучение казахского языка.
+description: Qazaqsha — заманауи интерактивті қазақ тілі.
 publish_to: 'none'
-version: 1.0.0+1
-
+version: 2.0.0+20
 environment:
   sdk: '>=3.5.0 <4.0.0'
-
 dependencies:
   flutter:
     sdk: flutter
   shared_preferences: ^2.5.3
-  speech_to_text: ^7.5.0
-
+  http: ^1.6.0
+  path_provider: ^2.1.5
+  record: ^7.1.1
+  audioplayers: ^6.8.1
 flutter:
   uses-material-design: true
+  assets:
+    - assets/audio/tanisu/

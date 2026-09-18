@@ -1,44 +1,111 @@
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 class SpeechService {
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  bool _initialized = false;
-  String? _kazakhLocale;
+  static const String _serverUrl =
+      String.fromEnvironment('ASR_URL', defaultValue: 'http://10.0.2.2:8000');
 
-  bool get isListening => _speech.isListening;
+  final AudioRecorder _recorder = AudioRecorder();
+  final AudioPlayer _player = AudioPlayer();
+  void Function(String text)? _onText;
 
-  Future<bool> initialize() async {
-    if (_initialized) return true;
-    _initialized = await _speech.initialize();
-    if (_initialized) {
-      final locales = await _speech.locales();
-      for (final locale in locales) {
-        final id = locale.localeId.toLowerCase().replaceAll('_', '-');
-        if (id == 'kk-kz' || id.startsWith('kk-')) {
-          _kazakhLocale = locale.localeId;
-          break;
-        }
-      }
-    }
-    return _initialized;
-  }
+  Future<bool> init() => _recorder.hasPermission();
 
-  Future<bool> listen({required void Function(SpeechRecognitionResult) onResult}) async {
-    final ok = await initialize();
-    if (!ok) return false;
-    await _speech.listen(
-      onResult: onResult,
-      localeId: _kazakhLocale ?? 'kk_KZ',
-      listenOptions: stt.SpeechListenOptions(
-        partialResults: true,
-        listenFor: const Duration(seconds: 8),
-        pauseFor: const Duration(seconds: 2),
+  Future<void> listen({required void Function(String) onText}) async {
+    if (!await _recorder.hasPermission()) return;
+    _onText = onText;
+    final dir = await getTemporaryDirectory();
+    final path = '\${dir.path}/qazaqsha_voice.wav';
+    await _recorder.start(
+      const RecordConfig(
+        encoder: AudioEncoder.wav,
+        sampleRate: 16000,
+        numChannels: 1,
+        echoCancel: true,
+        noiseSuppress: true,
+        autoGain: true,
       ),
+      path: path,
     );
-    return true;
   }
 
-  Future<void> stop() => _speech.stop();
-  Future<void> cancel() => _speech.cancel();
+  Future<void> stop() async {
+    final path = await _recorder.stop();
+    if (path == null) return;
+
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('\$_serverUrl/transcribe'),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          path,
+          filename: 'qazaqsha.wav',
+        ),
+      );
+
+      final response = await request.send().timeout(const Duration(seconds: 45));
+      final body = await response.stream.bytesToString();
+      if (response.statusCode != 200) {
+        throw Exception('ASR \${response.statusCode}: \$body');
+      }
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final text = (json['text'] as String?)?.trim() ?? '';
+      if (text.isNotEmpty) _onText?.call(text);
+    } catch (_) {
+      _onText?.call('');
+    } finally {
+      _onText = null;
+      try { await File(path).delete(); } catch (_) {}
+    }
+  }
+
+  Future<void> speak(String text) async {
+    await _player.stop();
+
+    // Yandex SpeechKit: female Kazakh voice (saule).
+    try {
+      final response = await http.post(
+        Uri.parse('\$_serverUrl/synthesize'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'text': text}),
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        final dir = await getTemporaryDirectory();
+        final file = File('\${dir.path}/qazaqsha_tts_\${DateTime.now().microsecondsSinceEpoch}.mp3');
+        await file.writeAsBytes(response.bodyBytes, flush: true);
+        await _player.play(DeviceFileSource(file.path));
+        return;
+      }
+    } catch (_) {}
+
+    final asset = _assetFor(text);
+    if (asset != null) await _player.play(AssetSource(asset));
+  }
+
+  String? _assetFor(String text) {
+    const map = <String, String>{
+      'сәлем': 'audio/tanisu/salem.mp3',
+      'аты': 'audio/tanisu/aty.mp3',
+      'жас': 'audio/tanisu/zhas.mp3',
+      'Сәлем! Қалың қалай?': 'audio/tanisu/salam_kalyn_kalay.mp3',
+      'Атың кім?': 'audio/tanisu/atyn_kim.mp3',
+      'Қай қалада тұрасың?': 'audio/tanisu/kay_kalada_turasyn.mp3',
+    };
+    return map[text];
+  }
+
+  void dispose() {
+    _recorder.dispose();
+    _player.dispose();
+  }
 }

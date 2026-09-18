@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+transformers
+accelerate
+torch
+soundfile
+numpy
+httpx
