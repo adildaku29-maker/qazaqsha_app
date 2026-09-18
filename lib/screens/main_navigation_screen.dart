@@ -2,78 +2,82 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/qazaqsha_content.dart';
 import '../services/storage_service.dart';
+import '../services/user_profile_service.dart';
+import '../ui/app_text.dart';
 import 'ai_dialogue_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
-  @override State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  @override State<MainNavigationScreen> createState()=>_MainNavigationScreenState();
 }
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int tab=0; final storage=StorageService();
-  @override Widget build(BuildContext context) {
-    final pages=[_Home(storage:storage),const _Lessons(),const _Achievements(),const _Profile()];
-    return Scaffold(body:SafeArea(child:pages[tab]),bottomNavigationBar:NavigationBar(
-      selectedIndex:tab,onDestinationSelected:(i)=>setState(()=>tab=i),
-      destinations:const [
-        NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'Басты бет'),
-        NavigationDestination(icon:Icon(Icons.menu_book_outlined),selectedIcon:Icon(Icons.menu_book),label:'Сабақтар'),
-        NavigationDestination(icon:Icon(Icons.emoji_events_outlined),selectedIcon:Icon(Icons.emoji_events),label:'Жетістіктер'),
-        NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'Профиль'),
-      ],
-    ));
-  }
+  @override Widget build(BuildContext context)=>FutureBuilder<UserProfile>(
+    future:UserProfileService().profile,
+    builder:(context,s){
+      final p=s.data??const UserProfile(nickname:'',language:'ru',character:'🦅');
+      final pages=[_Home(storage:storage,profile:p),_Lessons(language:p.language),_Achievements(language:p.language),_Profile(profile:p)];
+      return Scaffold(body:SafeArea(child:pages[tab]),bottomNavigationBar:NavigationBar(
+        selectedIndex:tab,onDestinationSelected:(i)=>setState(()=>tab=i),
+        destinations:[
+          NavigationDestination(icon:const Icon(Icons.home_outlined),selectedIcon:const Icon(Icons.home),label:AppText.get('home',p.language)),
+          NavigationDestination(icon:const Icon(Icons.menu_book_outlined),selectedIcon:const Icon(Icons.menu_book),label:AppText.get('lessons',p.language)),
+          NavigationDestination(icon:const Icon(Icons.emoji_events_outlined),selectedIcon:const Icon(Icons.emoji_events),label:AppText.get('achievements',p.language)),
+          NavigationDestination(icon:const Icon(Icons.person_outline),selectedIcon:const Icon(Icons.person),label:AppText.get('profile',p.language)),
+        ],
+      ));
+    },
+  );
 }
 class _Home extends StatelessWidget {
-  final StorageService storage; const _Home({required this.storage});
-  @override Widget build(BuildContext context) {
-    return FutureBuilder<List<dynamic>>(
-      future:Future.wait<dynamic>([storage.xp,storage.streak,storage.lessons]),
-      builder:(context,snapshot) {
-        final v=snapshot.data??<dynamic>[0,1,0];
-        return ListView(padding:const EdgeInsets.fromLTRB(20,18,20,30),children:[
-          Row(children:[
-            const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Text('Қош келдің, Әділ! 👋',style:TextStyle(fontSize:27,fontWeight:FontWeight.w900)),
-              Text('Қазақша сөйлей баста.',style:TextStyle(color:AppColors.muted)),
-            ])),
-            Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(18)),child:Text('🔥 '+v[1].toString(),style:const TextStyle(fontWeight:FontWeight.w800))),
-          ]),
-          const SizedBox(height:22),
-          Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[AppColors.navy2,Color(0xFF0B4A4B)]),borderRadius:BorderRadius.circular(28)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-            const Text('БҮГІНГІ МИССИЯ',style:TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-            const SizedBox(height:10),const Text('10 минут қазақша',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
-            const SizedBox(height:15),const LinearProgressIndicator(value:.62,minHeight:9),const SizedBox(height:9),
-            Text(v[0].toString()+' XP • '+v[2].toString()+' сабақ',style:const TextStyle(color:AppColors.muted)),
+  final StorageService storage; final UserProfile profile;
+  const _Home({required this.storage,required this.profile});
+  @override Widget build(BuildContext context)=>FutureBuilder<List<dynamic>>(
+    future:Future.wait<dynamic>([storage.xp,storage.streak,storage.lessons]),
+    builder:(context,snapshot){
+      final v=snapshot.data??<dynamic>[0,1,0]; final l=profile.language;
+      return ListView(padding:const EdgeInsets.fromLTRB(20,18,20,30),children:[
+        Row(children:[
+          Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('${AppText.get('welcome',l)}, ${profile.nickname}! 👋',style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900)),
+            Text(AppText.get('learn',l),style:const TextStyle(color:AppColors.muted)),
           ])),
-          const SizedBox(height:18),
-          InkWell(
-            onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AiDialogueScreen(topic:'Танысу',level:'A1'))),
-            borderRadius:BorderRadius.circular(24),
-            child:Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(24)),child:const Row(children:[
-              Text('🤖',style:TextStyle(fontSize:34)),SizedBox(width:14),
-              Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-                Text('AI-мен сөйлесу',style:TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
-                Text('Тірі диалог • A1',style:TextStyle(color:AppColors.muted)),
-              ])),Icon(Icons.arrow_forward_ios_rounded,size:17,color:AppColors.teal),
-            ])),
-          ),
-          const SizedBox(height:20),const Text('Оқу жолы',style:TextStyle(fontSize:20,fontWeight:FontWeight.w800)),const SizedBox(height:10),
-          ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
-            onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>AiDialogueScreen(topic:t.title,level:t.level))),
-            tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
-            leading:Text(t.emoji,style:const TextStyle(fontSize:28)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),
-            subtitle:Text(t.level+' • '+t.words.length.toString()+' сөз'),
-            trailing:Text('+'+t.xp.toString()+' XP',style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-          ))),
-        ]);
-      },
-    );
-  }
+          Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(18)),child:Text('${profile.character} 🔥 ${v[1]}',style:const TextStyle(fontWeight:FontWeight.w800))),
+        ]),
+        const SizedBox(height:22),
+        Container(padding:const EdgeInsets.all(22),decoration:BoxDecoration(gradient:const LinearGradient(colors:[AppColors.navy2,Color(0xFF0B4A4B)]),borderRadius:BorderRadius.circular(28)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Text(AppText.get('mission',l),style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+          const SizedBox(height:10),const Text('10 минут қазақша',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900)),
+          const SizedBox(height:15),const LinearProgressIndicator(value:.62,minHeight:9),const SizedBox(height:9),
+          Text('${v[0]} XP • ${v[2]} ${AppText.get('lesson',l)}',style:const TextStyle(color:AppColors.muted)),
+        ])),
+        const SizedBox(height:18),
+        InkWell(onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AiDialogueScreen(topic:'Танысу',level:'A1'))),borderRadius:BorderRadius.circular(24),
+          child:Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(24)),child:Row(children:[
+            const Text('🤖',style:TextStyle(fontSize:34)),const SizedBox(width:14),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(AppText.get('ai',l),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
+              Text('Қазақша + ${l=='en'?'English':l=='kk'?'Қазақша':'Русский'}',style:const TextStyle(color:AppColors.muted)),
+            ])),const Icon(Icons.arrow_forward_ios_rounded,size:17,color:AppColors.teal),
+          ]))),
+        const SizedBox(height:20),Text(AppText.get('path',l),style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
+        Text(AppText.get('lessons_sub',l),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:10),
+        ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
+          onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>AiDialogueScreen(topic:t.title,level:t.level))),
+          tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
+          leading:Text(t.emoji,style:const TextStyle(fontSize:28)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),
+          subtitle:Text('${t.level} • ${t.words.length} ${AppText.get('words',l)}'),
+          trailing:Text('+${t.xp} XP',style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+        ))),
+      ]);
+    },
+  );
 }
 class _Lessons extends StatelessWidget {
-  const _Lessons();
+  final String language; const _Lessons({required this.language});
   @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(20),children:[
-    const Text('Сабақтар',style:TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const Text('A1 → A2 → B1',style:TextStyle(color:AppColors.muted)),const SizedBox(height:20),
+    Text(AppText.get('lessons',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),
+    Text(AppText.get('lessons_sub',language),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),
     ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
       onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>AiDialogueScreen(topic:t.title,level:t.level))),
       tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
@@ -83,24 +87,25 @@ class _Lessons extends StatelessWidget {
   ]);
 }
 class _Achievements extends StatelessWidget {
-  const _Achievements();
+  final String language; const _Achievements({required this.language});
   @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(20),children:[
-    const Text('Жетістіктер',style:TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const SizedBox(height:18),
-    ...achievements.map((a){final k=a.keys.first;return Card(child:ListTile(leading:CircleAvatar(child:Text(k)),title:Text(a[k]!),subtitle:const Text('Жалғастыр!')));}),
+    Text(AppText.get('achievements',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const SizedBox(height:18),
+    ...achievements.map((a){final k=a.keys.first;return Card(child:ListTile(leading:CircleAvatar(child:Text(k)),title:Text(a[k]!),subtitle:Text(AppText.get('continue',language)));}),
   ]);
 }
 class _Profile extends StatelessWidget {
-  const _Profile();
+  final UserProfile profile; const _Profile({required this.profile});
   @override Widget build(BuildContext context)=>FutureBuilder<List<dynamic>>(
     future:Future.wait<dynamic>([StorageService().xp,StorageService().lessons,StorageService().words]),
     builder:(context,snapshot){final v=snapshot.data??<dynamic>[0,0,0];return ListView(padding:const EdgeInsets.all(20),children:[
-      const CircleAvatar(radius:48,backgroundColor:AppColors.card,child:Text('🦅',style:TextStyle(fontSize:42))),
-      const SizedBox(height:14),const Center(child:Text('Әділ',style:TextStyle(fontSize:25,fontWeight:FontWeight.w900))),
-      const Center(child:Text('Қазақ тілін үйренуші',style:TextStyle(color:AppColors.muted))),const SizedBox(height:25),
-      Row(children:[_metric('XP',v[0].toString()),_metric('Сабақ',v[1].toString()),_metric('Сөз',v[2].toString())]),const SizedBox(height:22),
-      Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(24)),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text('Батыр жолы',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),SizedBox(height:10),Text('🛡️ Бастауыш батыр'),
-        Text('Келесі деңгей: Момышұлы',style:TextStyle(color:AppColors.gold)),SizedBox(height:14),LinearProgressIndicator(value:.28),
+      CircleAvatar(radius:48,backgroundColor:AppColors.card,child:Text(profile.character,style:const TextStyle(fontSize:42))),
+      const SizedBox(height:14),Center(child:Text(profile.nickname,style:const TextStyle(fontSize:25,fontWeight:FontWeight.w900))),
+      Center(child:Text('Qazaqsha • ${profile.language.toUpperCase()}',style:const TextStyle(color:AppColors.muted))),const SizedBox(height:25),
+      Row(children:[_metric('XP',v[0].toString()),_metric(AppText.get('lesson',profile.language),v[1].toString()),_metric(AppText.get('words',profile.language),v[2].toString())]),const SizedBox(height:22),
+      Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(24)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        const Text('Батыр жолы',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900)),const SizedBox(height:10),
+        Text('${profile.character} Бастауыш батыр'),const Text('Келесі деңгей: Момышұлы',style:TextStyle(color:AppColors.gold)),
+        const SizedBox(height:14),const LinearProgressIndicator(value:.28),
       ])),
     ]);},
   );
