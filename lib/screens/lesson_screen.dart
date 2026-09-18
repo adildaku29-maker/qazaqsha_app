@@ -106,12 +106,38 @@ class _LessonScreenState extends State<LessonScreen>{
     ...pack.sentences.map((s)=>_studyCard(s.kk,s.tr(lang),'sentence')),
   ]);
 
-  Widget _studyCard(String kk,String tr,String type)=>Card(child:Padding(padding:const EdgeInsets.all(18),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Text(type=='word'?tx('Слово','Word','Сөз'):tx('Фраза','Phrase','Сөйлем'),style:const TextStyle(color:AppColors.muted,fontSize:12)),
-    const SizedBox(height:5),Text(kk,style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
-    const SizedBox(height:5),Text(tr,style:const TextStyle(color:AppColors.muted,fontSize:16)),
-    Align(alignment:Alignment.centerRight,child:IconButton(onPressed:()=>speech.speak(kk),icon:const Icon(Icons.volume_up_rounded,color:AppColors.teal))),
-  ]));
+  Widget _studyCard(String kk, String tr, String type) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              type == 'word'
+                  ? tx('Слово', 'Word', 'Сөз')
+                  : tx('Фраза', 'Phrase', 'Сөйлем'),
+              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              kk,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            Text(tr, style: const TextStyle(color: AppColors.muted, fontSize: 16)),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                onPressed: () => speech.speak(kk),
+                icon: const Icon(Icons.volume_up_rounded, color: AppColors.teal),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _wordQuiz(){
     final w=pack.words[index];
@@ -137,7 +163,7 @@ class _LessonScreenState extends State<LessonScreen>{
       _counter(index+1,3),const SizedBox(height:20),
       Text(s.tr(lang),style:const TextStyle(fontSize:18,color:AppColors.muted),textAlign:TextAlign.center),
       const SizedBox(height:22),
-      Container(width:double.infinity,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),child:Wrap(spacing:8,runSpacing:8,children:selected.map((x)=>Chip(label:Text(x))).toList())),
+      Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(20)), child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 70), child: Wrap(spacing: 8, runSpacing: 8, children: selected.map((x) => Chip(label: Text(x))).toList())),),
       const SizedBox(height:18),
       Wrap(spacing:8,runSpacing:10,children:shuffled.where((x)=>!selected.contains(x)).map((x)=>ActionChip(label:Text(x),onPressed:()=>setState(()=>selected.add(x)))).toList()),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
@@ -158,30 +184,119 @@ class _LessonScreenState extends State<LessonScreen>{
     ]);
   }
 
-  Widget _dialogue(){
-    final d=pack.dialogue[index];
-    final q=d.q(lang).replaceAll('{name}',profile!.nickname);
-    final a=d.a(lang).replaceAll('{name}',profile!.nickname);
-    return Column(children:[
-      _counter(index+1,3),const SizedBox(height:20),
-      Row(crossAxisAlignment:CrossAxisAlignment.start,children:[const CircleAvatar(child:Text('👩')),const SizedBox(width:10),Expanded(child:Container(padding:const EdgeInsets.all(16),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        const Text('Аиша',style:TextStyle(fontWeight:FontWeight.w800,color:AppColors.teal)),const SizedBox(height:6),Text(q,style:const TextStyle(fontSize:17)),
-      ])))]),
-      const SizedBox(height:18),
-      Text(tx('Твой ответ по-казахски:','Your answer in Kazakh:','Қазақша жауап бер:'),style:const TextStyle(color:AppColors.muted)),
-      const SizedBox(height:10),
-      Text(tx('Введи или произнеси свой ответ.','Type or say your answer.','Жауабыңды жаз немесе айт.'),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w800),textAlign:TextAlign.center),
-      const SizedBox(height:16),
-      Row(children:[IconButton(onPressed:()=>_listen(target:a),icon:Icon(listening?Icons.stop_circle:Icons.mic,color:AppColors.teal,size:34)),Expanded(child:TextField(controller:answer,onChanged:(_)=>setState((){}),decoration:InputDecoration(hintText:'Қазақша...',filled:true,fillColor:AppColors.card,border:OutlineInputBorder(borderRadius:BorderRadius.circular(20),borderSide:BorderSide.none))))]),
-      if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
-    ]);
+  Widget _dialogue() {
+    final d = pack.dialogue[index];
+    final q = d.q(lang).replaceAll('{name}', profile!.nickname);
+    final expected = d.answer.replaceAll('{name}', profile!.nickname);
+
+    return Column(
+      children: [
+        _counter(index + 1, 3),
+        const SizedBox(height: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(child: Text('👩')),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Аиша',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.teal),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(q, style: const TextStyle(fontSize: 17)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Text(
+          tx('Твой ответ по-казахски:', 'Your answer in Kazakh:', 'Қазақша жауап бер:'),
+          style: const TextStyle(color: AppColors.muted),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          tx('Введи или произнеси свой ответ.', 'Type or say your answer.', 'Жауабыңды жаз немесе айт.'),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => _listen(target: expected),
+              icon: Icon(
+                listening ? Icons.stop_circle : Icons.mic,
+                color: AppColors.teal,
+                size: 34,
+              ),
+            ),
+            Expanded(
+              child: TextField(
+                controller: answer,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Қазақша...',
+                  filled: true,
+                  fillColor: AppColors.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (feedback.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              feedback,
+              style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800),
+            ),
+          ),
+        if (taskPassed)
+          Text(
+            expected,
+            style: const TextStyle(color: AppColors.teal, fontWeight: FontWeight.w800),
+            textAlign: TextAlign.center,
+          ),
+      ],
+    );
   }
 
-  Widget _complete()=>Center(child:Padding(padding:const EdgeInsets.all(28),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+  Widget _complete() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
     const Text('🎉',style:TextStyle(fontSize:80)),const SizedBox(height:18),
     Text(tx('Урок завершён!','Lesson complete!','Сабақ аяқталды!'),style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
     const SizedBox(height:10),Text('+${pack.words.length*5+pack.sentences.length*8+pack.dialogue.length*10+20} XP',style:const TextStyle(color:AppColors.gold,fontSize:24,fontWeight:FontWeight.w900)),
     const SizedBox(height:28),Text(tx('Ты прошёл обучение, 3 задания со словами, 3 предложения, 3 произношения и 3 диалога с Аишей.','You completed the training, 3 word tasks, 3 sentence tasks, 3 speaking tasks and 3 dialogues with Aisha.','Оқыту, 3 сөз тапсырмасы, 3 сөйлем, 3 айтылым және Айшамен 3 диалог аяқталды.'),textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted,height:1.4)),
-    const SizedBox(height:30),FilledButton(onPressed:()=>Navigator.pop(context),child:Text(tx('Вернуться к урокам','Back to lessons','Сабақтарға оралу'))),
-  ]));
+            const SizedBox(height: 30),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tx('Вернуться к урокам', 'Back to lessons', 'Сабақтарға оралу')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
