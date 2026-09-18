@@ -20,7 +20,7 @@ class _LessonScreenState extends State<LessonScreen>{
   int phase=0,index=0,correct=0;
   List<String> selected=[];
   List<String> shuffled=[];
-  bool listening=false,done=false;
+  bool listening=false,done=false,taskPassed=false;
   String feedback='';
 
   String get lang=>profile?.language??'ru';
@@ -35,8 +35,8 @@ class _LessonScreenState extends State<LessonScreen>{
     if(phase==0){phase=1;index=0;return;}
     if(phase==1){if(index<pack.words.length-1){index++;}else{phase=2;index=0;_prepareSentence();}return;}
     if(phase==2){if(selected.join(' ')==pack.sentences[index].kk){correct++;feedback=tx('Дұрыс!','Correct!','Дұрыс!');if(index<pack.sentences.length-1){index++;_prepareSentence();}else{phase=3;index=0;}}else{feedback=tx('Ещё раз собери.','Try again.','Қайта құрастыр.');}return;}
-    if(phase==3){if(index<pack.sentences.length-1){index++;return;}phase=4;index=0;answer.clear();return;}
-    if(phase==4){_finish();}
+    if(phase==3){if(!taskPassed)return;if(index<pack.sentences.length-1){index++;taskPassed=false;feedback='';return;}phase=4;index=0;answer.clear();taskPassed=false;return;}
+    if(phase==4){final d=pack.dialogue[index];final expected=d.answer.replaceAll('{name}',profile!.nickname);final n=answer.text.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();final e=expected.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();if(n==e||e.split(' ').where((w)=>w.length>2).every(n.contains)){taskPassed=true;feedback=tx('Дұрыс!','Correct!','Дұрыс!');if(index<2){index++;answer.clear();taskPassed=false;feedback='';}else{_finish();}}else{feedback=tx('Жауапты тағы бір рет көр.','Try the answer again.','Жауапты қайта көр.');}return;}
   }
 
   void _prepareSentence(){selected=[];shuffled=pack.sentences[index].kk.split(' ')..shuffle(Random(index+7));}
@@ -51,7 +51,7 @@ class _LessonScreenState extends State<LessonScreen>{
         final normalized=text.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();
         final expected=target.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();
         final hit=normalized==expected || expected.split(' ').where((w)=>w.length>2).every(normalized.contains);
-        if(hit && mounted){setState((){listening=false;feedback=tx('Отлично!','Great pronunciation!','Жақсы айттың!');});speech.stop();}
+        if(hit && mounted){setState((){listening=false;taskPassed=true;feedback=tx('Отлично!','Great pronunciation!','Жақсы айттың!');if(phase==4)answer.text=target;});speech.stop();}
       });
     }catch(_){if(mounted)setState(()=>listening=false);}
   }
@@ -82,7 +82,7 @@ class _LessonScreenState extends State<LessonScreen>{
       ])),
       if(phase==0)SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,4,20,14),child:FilledButton(onPressed:next,child:SizedBox(width:double.infinity,child:Center(child:Text(tx('Начать упражнения','Start exercises','Жаттығуларды бастау'))))))),
       if(phase==2)SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,4,20,14),child:FilledButton(onPressed:selected.isEmpty?null:next,child:SizedBox(width:double.infinity,child:Center(child:Text(tx('Проверить','Check','Тексеру'))))))),
-      if(phase==3)SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,4,20,14),child:FilledButton(onPressed:next,child:SizedBox(width:double.infinity,child:Center(child:Text(tx('Далее','Continue','Жалғастыру'))))))),
+      if(phase==3)SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,4,20,14),child:FilledButton(onPressed:taskPassed?next:null,child:SizedBox(width:double.infinity,child:Center(child:Text(tx('Далее','Continue','Жалғастыру'))))))),
       if(phase==4)SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,4,20,14),child:FilledButton(onPressed:answer.text.trim().isEmpty?null:next,child:SizedBox(width:double.infinity,child:Center(child:Text(index==2?tx('Завершить','Finish','Аяқтау'):tx('Ответить','Answer','Жауап беру'))))))),
     ]);
   }
@@ -170,7 +170,7 @@ class _LessonScreenState extends State<LessonScreen>{
       const SizedBox(height:18),
       Text(tx('Твой ответ по-казахски:','Your answer in Kazakh:','Қазақша жауап бер:'),style:const TextStyle(color:AppColors.muted)),
       const SizedBox(height:10),
-      Text(a,style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800),textAlign:TextAlign.center),
+      Text(tx('Введи или произнеси свой ответ.','Type or say your answer.','Жауабыңды жаз немесе айт.'),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w800),textAlign:TextAlign.center),
       const SizedBox(height:16),
       Row(children:[IconButton(onPressed:()=>_listen(target:a),icon:Icon(listening?Icons.stop_circle:Icons.mic,color:AppColors.teal,size:34)),Expanded(child:TextField(controller:answer,onChanged:(_)=>setState((){}),decoration:InputDecoration(hintText:'Қазақша...',filled:true,fillColor:AppColors.card,border:OutlineInputBorder(borderRadius:BorderRadius.circular(20),borderSide:BorderSide.none))))]),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
