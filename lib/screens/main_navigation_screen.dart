@@ -4,7 +4,7 @@ import '../data/qazaqsha_content.dart';
 import '../services/storage_service.dart';
 import '../services/user_profile_service.dart';
 import '../ui/app_text.dart';
-import 'ai_dialogue_screen.dart';
+import 'lesson_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -52,18 +52,11 @@ class _Home extends StatelessWidget {
           Text('${v[0]} XP • ${v[2]} ${AppText.get('lesson',l)}',style:const TextStyle(color:AppColors.muted)),
         ])),
         const SizedBox(height:18),
-        InkWell(onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AiDialogueScreen(topic:'Танысу',level:'A1'))),borderRadius:BorderRadius.circular(24),
-          child:Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(24)),child:Row(children:[
-            const Text('🤖',style:TextStyle(fontSize:34)),const SizedBox(width:14),
-            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-              Text(AppText.get('ai',l),style:const TextStyle(fontSize:18,fontWeight:FontWeight.w800)),
-              Text('Қазақша + ${l=='en'?'English':l=='kk'?'Қазақша':'Русский'}',style:const TextStyle(color:AppColors.muted)),
-            ])),const Icon(Icons.arrow_forward_ios_rounded,size:17,color:AppColors.teal),
-          ]))),
+        const SizedBox(height:18),
         const SizedBox(height:20),Text(AppText.get('path',l),style:const TextStyle(fontSize:20,fontWeight:FontWeight.w800)),
         Text(AppText.get('lessons_sub',l),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:10),
         ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
-          onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>AiDialogueScreen(topic:t.title,level:t.level))),
+          onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:t.title,level:t.level))),
           tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
           leading:Text(t.emoji,style:const TextStyle(fontSize:28)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),
           subtitle:Text('${t.level} • ${t.words.length} ${AppText.get('words',l)}'),
