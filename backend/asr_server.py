@@ -117,4 +117,4 @@ async def synthesize(request: SynthesizeRequest):
 
     audio = azure_response.content
     TTS_CACHE[cache_key] = audio
-    return Response(content=audio, media_type="audio/mpeg"),
+    return Response(content=audio, media_type="audio/mpeg")
