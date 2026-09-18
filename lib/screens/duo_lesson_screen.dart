@@ -1,552 +1,214 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
-
+import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/app_models.dart';
 import '../services/storage_service.dart';
-import '../widgets/ornament_container.dart';
+import '../services/speech_service.dart';
+import '../theme/app_theme.dart';
 
 class DuoLessonScreen extends StatefulWidget {
   final Player player;
-  const DuoLessonScreen({super.key, required this.player});
-
-  @override
-  State<DuoLessonScreen> createState() => _DuoLessonScreenState();
+  final Lesson lesson;
+  const DuoLessonScreen({super.key, required this.player, required this.lesson});
+  @override State<DuoLessonScreen> createState() => _DuoLessonScreenState();
 }
 
 class _DuoLessonScreenState extends State<DuoLessonScreen> {
-  bool _showingIntro = true;
-  int _currentIndex = 0;
-  int _correctCount = 0;
-  int _hearts = 5;
+  final SpeechService speech = SpeechService();
+  final typing = TextEditingController();
+  final assembled = <String>[];
+  int phase = 0; // 0 learning, 1 practice, 2 speaking, 3 result
+  int q = 0;
+  int correct = 0;
+  bool answered = false;
+  bool listening = false;
+  String transcript = '';
+  String? selected;
 
-  late stt.SpeechToText _speech;
-  bool _isListening = false;
-  bool _speechInitialized = false;
-  bool _isInitializing = false;
-  String _spokenText = "Микрофонды басып, сөйлеңіз...";
-  List<String> _selectedWords = [];
-
-  final List<Question> _questions = [
-    Question(
-      id: '1',
-      type: QuestionType.choice,
-      questionText: 'Асханада: «Нан» деген не?',
-      questionTranslation: 'В столовой: Что значит «Нан»?',
-      correctAnswer: 'Хлеб',
-      options: ['Хлеб', 'Вода', 'Соль', 'Мясо'],
-    ),
-    Question(
-      id: '2',
-      type: QuestionType.choice,
-      questionText: '«Су әкеліңізші» аудармасы:',
-      questionTranslation: 'Перевод: «Принесите воду, пожалуйста»',
-      correctAnswer: 'Принесите воду',
-      options: ['Принесите воду', 'Дайте счет', 'Всe вкусно', 'Спасибо'],
-    ),
-    Question(
-      id: '3',
-      type: QuestionType.speaking,
-      questionText: 'Микрофонға айтыңыз: «Рақмет»',
-      questionTranslation: 'Скажите в микрофон: «Спасибо»',
-      correctAnswer: 'рақмет',
-    ),
-    Question(
-      id: '4',
-      type: QuestionType.assemble,
-      questionText: 'Сөйлемді құрастырыңыз: «Я ем мясо»',
-      questionTranslation: 'Соберите предложение: «Я ем мясо»',
-      correctAnswer: 'Мен ет жеймін',
-      options: ['Мен', 'ет', 'жеймін', 'су', 'ішемін'],
-    ),
-    Question(
-      id: '5',
-      type: QuestionType.choice,
-      questionText: '«Шай ішесіз бе?» деген не?',
-      questionTranslation: 'Что значит «Будете чай?»',
-      correctAnswer: 'Будете чай?',
-      options: ['Будете чай?', 'Где туалет?', 'Сколько стоит?', 'Пока'],
-    ),
-    Question(
-      id: '6',
-      type: QuestionType.choice,
-      questionText: 'Үйде: «Төрлетіңіз» деген сөз:',
-      questionTranslation: 'Дома: слово «Проходите на почетное место»:',
-      correctAnswer: 'Проходите в дом',
-      options: [
-        'Проходите в дом',
-        'До свидания',
-        'Закройте дверь',
-        'Спокойной ночи',
-      ],
-    ),
-    Question(
-      id: '7',
-      type: QuestionType.speaking,
-      questionText: 'Айтыңыз: «Сәлеметсіз бе»',
-      questionTranslation: 'Скажите: «Здравствуйте»',
-      correctAnswer: 'сәлеметсіз бе',
-    ),
-    Question(
-      id: '8',
-      type: QuestionType.assemble,
-      questionText: 'Құрастырыңыз: «Приятного аппетита»',
-      questionTranslation: 'Соберите: «Приятного аппетита»',
-      correctAnswer: 'Асыңыз дәмді болсын',
-      options: ['Асыңыз', 'дәмді', 'болсын', 'нан', 'су'],
-    ),
-    Question(
-      id: '9',
-      type: QuestionType.choice,
-      questionText: '«Қанша тұрады?» аудармасы:',
-      questionTranslation: 'Перевод фразы «Сколько стоит?»:',
-      correctAnswer: 'Сколько стоит?',
-      options: ['Сколько стоит?', 'Как дела?', 'Который час?', 'Где магазин?'],
-    ),
-    Question(
-      id: '10',
-      type: QuestionType.choice,
-      questionText: '«Өте дәмді!» деген не?',
-      questionTranslation: 'Что значит «Очень вкусно!»?',
-      correctAnswer: 'Очень вкусно!',
-      options: ['Очень вкусно!', 'Плохо', 'Горячо', 'Холодно'],
-    ),
-  ];
+  Question get question => widget.lesson.questions[q];
+  List<MapEntry<String, String>> get vocabulary => widget.lesson.vocabulary;
+  int get speechCount => min(2, vocabulary.length);
 
   @override
-  void initState() {
-    super.initState();
-    _speech = stt.SpeechToText();
-    _initSpeech();
+  void dispose() {
+    speech.cancel();
+    typing.dispose();
+    super.dispose();
   }
 
-  void _initSpeech() async {
-    if (_isInitializing || _speechInitialized) return;
-    _isInitializing = true;
-    try {
-      bool available = await _speech.initialize(
-        onError: (val) => print('Error: $val'),
-        onStatus: (val) => print('Status: $val'),
-      );
-      if (mounted) {
-        setState(() {
-          _speechInitialized = available;
-          _isInitializing = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isInitializing = false);
-    }
+  String norm(String s) => s.toLowerCase().trim()
+      .replaceAll(RegExp(r'[.!?,]'), '')
+      .replaceAll(RegExp(r'ә'), 'а')
+      .replaceAll(RegExp(r'і'), 'и')
+      .replaceAll(RegExp(r'ө'), 'о')
+      .replaceAll(RegExp(r'ү'), 'у')
+      .replaceAll(RegExp(r'ұ'), 'у')
+      .replaceAll(RegExp(r'қ'), 'к')
+      .replaceAll(RegExp(r'ғ'), 'г')
+      .replaceAll(RegExp(r'ң'), 'н')
+      .replaceAll(RegExp(r'һ'), 'х')
+      .replaceAll(RegExp(r'ъ|ь'), '')
+      .replaceAll(RegExp(r'\s+'), ' ');
+
+  void answer(String value) {
+    if (answered) return;
+    final ok = norm(value) == norm(question.correctAnswer);
+    setState(() { answered = true; selected = value; if (ok) correct++; });
   }
 
-  void _listen() async {
-    if (_isInitializing) return;
-    if (!_speechInitialized) {
-      await _speech.initialize();
-      _speechInitialized = true;
-    }
+  void assembleWord(String value) {
+    if (answered) return;
+    setState(() {
+      if (assembled.contains(value)) assembled.remove(value); else assembled.add(value);
+    });
+  }
 
-    if (!_isListening) {
-      if (_speechInitialized) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          localeId: 'kk_KZ',
-          onResult: (val) {
-            setState(() {
-              _spokenText = val.recognizedWords;
-              if (_spokenText.toLowerCase().contains(
-                _questions[_currentIndex].correctAnswer.toLowerCase(),
-              )) {
-                _answer(true);
-              }
-            });
-          },
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Микрофонға рұқсат берілмеді')),
-        );
-      }
+  void checkAssemble() => answer(assembled.join(' '));
+
+  Future<void> nextPractice() async {
+    if (!answered) return;
+    if (q < widget.lesson.questions.length - 1) {
+      setState(() { q++; answered = false; selected = null; typing.clear(); assembled.clear(); });
     } else {
-      setState(() => _isListening = false);
-      _speech.stop();
+      setState(() { phase = 2; q = 0; answered = false; transcript = ''; });
     }
   }
 
-  void _answer(bool isCorrect) async {
-    if (isCorrect) {
-      _correctCount++;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Дұрыс! (Верно) 🎉'),
-          backgroundColor: Colors.green,
-          duration: Duration(milliseconds: 800),
-        ),
-      );
-    } else {
-      _hearts--;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Қате! (Ошибка) ❌'),
-          backgroundColor: Colors.red,
-          duration: Duration(milliseconds: 800),
-        ),
-      );
-    }
-
-    if (_hearts <= 0) {
-      _finishLesson(passed: false);
+  Future<void> startListening() async {
+    if (listening) {
+      await speech.stop();
+      setState(() => listening = false);
       return;
     }
-
-    if (_currentIndex < _questions.length - 1) {
+    setState(() { listening = true; transcript = ''; });
+    final ok = await speech.listen(onResult: (SpeechRecognitionResult result) {
+      if (!mounted) return;
       setState(() {
-        _currentIndex++;
-        _selectedWords.clear();
-        _spokenText = "Микрофонды басып, сөйлеңіз...";
-        _isListening = false;
+        transcript = result.recognizedWords;
+        if (result.finalResult) listening = false;
       });
-    } else {
-      _finishLesson(passed: _correctCount >= 7);
+    });
+    if (!ok && mounted) {
+      setState(() => listening = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Распознавание речи недоступно. Проверь разрешение микрофона и наличие казахского языка на телефоне.')),
+      );
     }
   }
 
-  void _finishLesson({required bool passed}) async {
-    if (passed) {
-      widget.player.xp += 100;
-      widget.player.completedLessonsCount++;
-      await StorageService.savePlayer(widget.player);
+  void checkSpeech() {
+    if (transcript.trim().isEmpty) return;
+    final target = vocabulary[q].key;
+    final ok = norm(transcript) == norm(target) ||
+        norm(transcript).contains(norm(target)) ||
+        norm(target).contains(norm(transcript));
+    setState(() { answered = true; if (ok) correct++; });
+  }
+
+  Future<void> nextSpeech() async {
+    if (!answered) return;
+    if (q < speechCount - 1) {
+      setState(() { q++; answered = false; transcript = ''; });
+    } else {
+      await finishLesson();
     }
+  }
 
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: Text(passed ? 'Сабақ аяқталды! 🏆' : 'Сәтсіз өтті 💔'),
-        content: Text(
-          passed
-              ? 'Cіз 10-нан $_correctCount дұрыс жауап бердіңіз!\n+100 XP жинадыңыз!'
-              : 'Вы ответили верно на $_correctCount из 10. Попробуйте еще раз!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('ОК'),
-          ),
-        ],
-      ),
-    );
+  Future<void> finishLesson() async {
+    final firstTime = !widget.player.isCompleted(widget.lesson.id);
+    final total = widget.lesson.questions.length + speechCount;
+    final gained = 20 + correct * 10;
+    if (firstTime) {
+      widget.player.xp += gained;
+      widget.player.completedLessons = [...widget.player.completedLessons, widget.lesson.id]..sort();
+      widget.player.completedLessonsCount = widget.player.completedLessons.length;
+    }
+    await StorageService.savePlayer(widget.player);
+    if (mounted) setState(() => phase = 3);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_showingIntro) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Краткое обучение 📚')),
-        body: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OrnamentContainer(
-                child: Column(
-                  children: const [
-                    Text(
-                      '🍽️ Ресторан және Тамақ',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 14),
-                    Text(
-                      '💡 Полный словарь урока:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      '• Нан — Хлеб\n'
-                      '• Су — Вода\n'
-                      '• Рақмет — Спасибо\n'
-                      '• Асыңыз дәмді болсын — Приятного аппетита\n'
-                      '• Мен ет жеймін — Я ем мясо\n'
-                      '• Шай ішесіз бе? — Будете чай?\n'
-                      '• Төрлетіңіз — Проходите в дом\n'
-                      '• Сәлеметсіз бе — Здравствуйте\n'
-                      '• Қанша тұрады? — Сколько стоит?\n'
-                      '• Өте дәмді — Очень вкусно',
-                      style: TextStyle(fontSize: 15, height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF58CC02),
-                  ),
-                  onPressed: () => setState(() => _showingIntro = false),
-                  child: const Text(
-                    'Начать тест (10 вопросов) 📝',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final q = _questions[_currentIndex];
-
+    if (phase == 0) return _learning();
+    if (phase == 3) return _result();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Вопрос ${_currentIndex + 1}/10'),
-        actions: [
-          Center(
-            child: Text(
-              '❤️ $_hearts  ',
-              style: const TextStyle(
-                fontSize: 18,
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
+        title: Text('${widget.lesson.icon} ${phase == 1 ? 'Практика' : 'Говорение'}'),
+        actions: [Padding(padding: const EdgeInsets.only(right: 16), child: Center(child: Text(
+          phase == 1 ? '${q + 1}/${widget.lesson.questions.length}' : '${q + 1}/$speechCount',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        )))],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            _buildQuestionHeader(q),
-            const Spacer(),
-            _buildQuestionBody(q),
-            const Spacer(),
-            if (q.type == QuestionType.assemble)
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF58CC02),
-                  ),
-                  onPressed: () =>
-                      _answer(_selectedWords.join(' ') == q.correctAnswer),
-                  child: const Text(
-                    'ПРОВЕРИТЬ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+      body: Column(children: [
+        LinearProgressIndicator(value: phase == 1 ? (q + (answered ? 1 : 0)) / widget.lesson.questions.length : (q + (answered ? 1 : 0)) / speechCount, minHeight: 5),
+        Expanded(child: ListView(padding: const EdgeInsets.all(18), children: [
+          if (phase == 1) ...[_questionHeader(), const SizedBox(height: 18), _questionBody(), if (answered) Padding(padding: const EdgeInsets.only(top: 18), child: _feedback())]
+          else ...[_speechHeader(), const SizedBox(height: 24), _speechBody()],
+        ])),
+        if (phase == 1) _bottom(onPressed: answered ? nextPractice : null, label: q == widget.lesson.questions.length - 1 ? 'Перейти к говорению' : 'Продолжить')
+        else _bottom(onPressed: answered ? nextSpeech : null, label: q == speechCount - 1 ? 'Завершить урок' : 'Следующее'),
+      ]),
     );
   }
 
-  Widget _buildQuestionHeader(Question q) {
-    return Column(
-      children: [
-        Text(
-          q.questionText,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
+  Widget _learning() => Scaffold(
+    appBar: AppBar(title: Text('${widget.lesson.icon} ${widget.lesson.title}')),
+    body: Column(children: [
+      LinearProgressIndicator(value: 0.15, minHeight: 5),
+      Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(18, 20, 18, 30), children: [
+        Text('Сначала изучим материал', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
-        if (q.questionTranslation != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF58CC02).withOpacity(0.5),
-              ),
-            ),
-            child: Text(
-              '💡 Аудармасы: ${q.questionTranslation}',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF2E7D32),
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-      ],
-    );
-  }
+        Text('Запомни слова и фразы. Они встретятся в практике и заданиях с микрофоном.', style: TextStyle(color: Colors.grey.shade700, fontSize: 16)),
+        const SizedBox(height: 20),
+        ...vocabulary.asMap().entries.map((entry) => _vocabCard(entry.key + 1, entry.value.key, entry.value.value)),
+        const SizedBox(height: 12),
+        Card(color: AppTheme.primary.withOpacity(.08), child: const Padding(padding: EdgeInsets.all(16), child: Row(children: [Icon(Icons.mic, size: 30), SizedBox(width: 12), Expanded(child: Text('После обучения ты произнесёшь слова вслух. Приложение распознает казахскую речь через микрофон.'))]))),
+      ])),
+      _bottom(onPressed: () => setState(() => phase = 1), label: 'Начать практику'),
+    ],),
+  );
 
-  Widget _buildQuestionBody(Question q) {
-    if (q.type == QuestionType.choice) {
-      return Column(
-        children: q.options
-            .map(
-              (opt) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 54),
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(
-                        color: Color(0xFFE5A93C),
-                        width: 1.5,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: () => _answer(opt == q.correctAnswer),
-                    child: Text(
-                      opt,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      );
-    } else if (q.type == QuestionType.speaking) {
-      return Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              _spokenText,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: _isListening ? Colors.red : Colors.black87,
-                fontWeight: _isListening ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: _listen,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: EdgeInsets.all(_isListening ? 8 : 0),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isListening
-                    ? Colors.red.withOpacity(0.2)
-                    : Colors.transparent,
-              ),
-              child: CircleAvatar(
-                radius: 44,
-                backgroundColor: _isListening
-                    ? Colors.red
-                    : const Color(0xFF1CB0F6),
-                child: Icon(
-                  _isListening ? Icons.mic : Icons.mic_none,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        children: [
-          Container(
-            constraints: const BoxConstraints(minHeight: 60),
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5A93C), width: 1.5),
-            ),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _selectedWords
-                  .map(
-                    (w) => Chip(
-                      backgroundColor: const Color(0xFFE8F5E9),
-                      side: const BorderSide(color: Color(0xFF58CC02)),
-                      label: Text(
-                        w,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      onDeleted: () => setState(() => _selectedWords.remove(w)),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: q.options.map((w) {
-              final sel = _selectedWords.contains(w);
-              return ActionChip(
-                elevation: sel ? 0 : 2,
-                backgroundColor: sel ? Colors.grey.shade200 : Colors.white,
-                side: BorderSide(
-                  color: sel ? Colors.transparent : const Color(0xFF1CB0F6),
-                ),
-                label: Text(
-                  w,
-                  style: TextStyle(
-                    color: sel ? Colors.grey : Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onPressed: sel
-                    ? null
-                    : () => setState(() => _selectedWords.add(w)),
-              );
-            }).toList(),
-          ),
-        ],
-      );
+  Widget _vocabCard(int number, String kz, String ru) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: Padding(padding: const EdgeInsets.all(15), child: Row(children: [
+      CircleAvatar(radius: 18, child: Text('$number')),
+      const SizedBox(width: 14),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(kz, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), const SizedBox(height: 3), Text(ru, style: const TextStyle(color: Colors.grey))])),
+      const Icon(Icons.volume_up_outlined, color: AppTheme.primary),
+    ])),
+  );
+
+  Widget _questionHeader() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(question.questionText, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text(question.translation, style: const TextStyle(color: Colors.grey, fontSize: 16))]);
+
+  Widget _questionBody() {
+    switch (question.type) {
+      case QuestionType.choice:
+        return Column(children: question.options.map((o) { final isSel = selected == o; final isCorrect = norm(o) == norm(question.correctAnswer); return Padding(padding: const EdgeInsets.only(bottom: 10), child: _answerButton(o, isSel, answered && isCorrect)); }).toList());
+      case QuestionType.assemble:
+        return Column(children: [Wrap(spacing: 8, runSpacing: 8, children: assembled.map((x) => Chip(label: Text(x))).toList()), const SizedBox(height: 18), Wrap(spacing: 8, runSpacing: 10, children: question.options.map((o) => OutlinedButton(onPressed: answered ? null : () => assembleWord(o), child: Text(o))).toList()), const SizedBox(height: 18), SizedBox(width: double.infinity, height: 50, child: FilledButton(onPressed: answered || assembled.isEmpty ? null : checkAssemble, child: const Text('Проверить')))]);
+      case QuestionType.typing:
+        return Column(children: [TextField(controller: typing, enabled: !answered, textInputAction: TextInputAction.done, onSubmitted: (_) => answer(typing.text), decoration: InputDecoration(hintText: 'Введите на казахском', border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)))), const SizedBox(height: 12), SizedBox(width: double.infinity, height: 50, child: FilledButton(onPressed: answered ? null : () => answer(typing.text), child: const Text('Проверить')))]);
     }
   }
+
+  Widget _answerButton(String text, bool selectedHere, bool correctHere) { Color? bg; if (answered && correctHere) bg = Colors.green.withOpacity(.15); else if (answered && selectedHere) bg = Colors.red.withOpacity(.12); return SizedBox(width: double.infinity, child: OutlinedButton(onPressed: answered ? null : () => answer(text), style: OutlinedButton.styleFrom(backgroundColor: bg, padding: const EdgeInsets.all(17), alignment: Alignment.centerLeft, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Row(children: [Expanded(child: Text(text, style: const TextStyle(fontSize: 16))), if (answered && correctHere) const Icon(Icons.check_circle, color: Colors.green), if (answered && selectedHere && !correctHere) const Icon(Icons.cancel, color: Colors.red)]))); }
+
+  Widget _feedback() { final value = selected ?? (question.type == QuestionType.typing ? typing.text : assembled.join(' ')); final ok = norm(value) == norm(question.correctAnswer); return Container(width: double.infinity, padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: ok ? Colors.green.withOpacity(.10) : Colors.red.withOpacity(.08), borderRadius: BorderRadius.circular(16)), child: Text(ok ? 'Дұрыс! Отлично 🎉' : 'Правильный ответ: ${question.correctAnswer}', style: TextStyle(fontWeight: FontWeight.bold, color: ok ? Colors.green.shade800 : Colors.red.shade800))); }
+
+  Widget _speechHeader() { final target = vocabulary[q]; return Column(children: [const Text('Говори по-казахски', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800), textAlign: TextAlign.center), const SizedBox(height: 10), const Text('Произнеси слово вслух. Не бойся ошибиться — можно попробовать ещё раз.', style: TextStyle(color: Colors.grey, fontSize: 16), textAlign: TextAlign.center), const SizedBox(height: 28), Text(target.value, style: const TextStyle(fontSize: 18, color: Colors.grey)), const SizedBox(height: 8), Text(target.key, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w900))]); }
+
+  Widget _speechBody() => Column(children: [
+    GestureDetector(onTap: answered ? null : startListening, child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 130, height: 130, decoration: BoxDecoration(shape: BoxShape.circle, color: listening ? Colors.red.withOpacity(.12) : AppTheme.primary.withOpacity(.10), border: Border.all(color: listening ? Colors.red : AppTheme.primary, width: 3)), child: Icon(listening ? Icons.stop : Icons.mic, size: 58, color: listening ? Colors.red : AppTheme.primary))),
+    const SizedBox(height: 18),
+    Text(listening ? 'Слушаю… говори сейчас' : answered ? 'Распознавание завершено' : 'Нажми на микрофон и произнеси слово', style: const TextStyle(fontWeight: FontWeight.w600)),
+    const SizedBox(height: 20),
+    if (transcript.isNotEmpty) Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(children: [const Text('Я услышал:', style: TextStyle(color: Colors.grey)), const SizedBox(height: 6), Text(transcript, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))]))),
+    const SizedBox(height: 14),
+    if (!answered) SizedBox(width: double.infinity, height: 52, child: FilledButton(onPressed: transcript.trim().isEmpty ? null : checkSpeech, child: const Text('Проверить произношение'))),
+    if (answered) Card(color: AppTheme.primary.withOpacity(.08), child: Padding(padding: const EdgeInsets.all(15), child: Text(norm(transcript) == norm(vocabulary[q].key) ? 'Дұрыс! Отличное произношение 🎉' : 'Почти! Правильная фраза: ${vocabulary[q].key}', style: const TextStyle(fontWeight: FontWeight.bold)))),
+  ]);
+
+  Widget _bottom({required VoidCallback? onPressed, required String label}) => SafeArea(child: Padding(padding: const EdgeInsets.all(14), child: SizedBox(width: double.infinity, height: 54, child: FilledButton(onPressed: onPressed, style: FilledButton.styleFrom(backgroundColor: AppTheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(label)))));
+
+  Widget _result() { final total = widget.lesson.questions.length + speechCount; final percent = ((correct / total) * 100).round(); return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(percent >= 75 ? '🎉' : '💪', style: const TextStyle(fontSize: 80)), const SizedBox(height: 14), const Text('Урок завершён!', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800)), const SizedBox(height: 10), Text('$correct из $total правильных • $percent%', style: const TextStyle(fontSize: 18)), const SizedBox(height: 8), Text('В том числе ${speechCount} задания с микрофоном 🎤', style: const TextStyle(color: Colors.grey)), const SizedBox(height: 8), Text('Всего XP: ${widget.player.xp}', style: const TextStyle(color: AppTheme.primary, fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 28), SizedBox(width: double.infinity, height: 54, child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Вернуться к урокам')))])))); }
 }

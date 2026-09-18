@@ -1,18 +1,16 @@
 import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../models/app_models.dart';
 
 class StorageService {
-  static const String _playerKey = 'qazaqsha_player_v2';
+  static const _key = 'qazaqsha_player_v3';
 
   static Future<Player?> getPlayer() async {
     final prefs = await SharedPreferences.getInstance();
-    final str = prefs.getString(_playerKey);
-    if (str == null) return null;
+    final raw = prefs.getString(_key);
+    if (raw == null) return null;
     try {
-      return Player.fromJson(jsonDecode(str));
+      return Player.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       return null;
     }
@@ -20,11 +18,11 @@ class StorageService {
 
   static Future<void> savePlayer(Player player) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_playerKey, jsonEncode(player.toJson()));
+    await prefs.setString(_key, jsonEncode(player.toJson()));
   }
 
   static Future<void> clearPlayer() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_playerKey);
+    await prefs.remove(_key);
   }
 }

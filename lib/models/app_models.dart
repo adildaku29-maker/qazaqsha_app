@@ -1,35 +1,34 @@
-enum QuestionType { choice, speaking, assemble }
+enum QuestionType { choice, assemble, typing }
 
 class Question {
   final String id;
   final QuestionType type;
   final String questionText;
-  final String questionTranslation; // Подстрочный перевод вопроса
-  final String? hintText; // Подсказка по сложным конструкциям
+  final String translation;
+  final String? hint;
   final String correctAnswer;
   final List<String> options;
 
-  Question({
+  const Question({
     required this.id,
     required this.type,
     required this.questionText,
-    required this.questionTranslation,
-    this.hintText,
+    required this.translation,
     required this.correctAnswer,
+    this.hint,
     this.options = const [],
   });
 }
 
 class Lesson {
-  final String id;
+  final int id;
   final String title;
   final String category;
   final String icon;
-  final Map<String, String>
-  vocabulary; // Словарь для интро (100% покрытие вопросов)
+  final List<MapEntry<String, String>> vocabulary;
   final List<Question> questions;
 
-  Lesson({
+  const Lesson({
     required this.id,
     required this.title,
     required this.category,
@@ -41,13 +40,14 @@ class Lesson {
 
 class Player {
   String nickname;
-  String gender; // 'male' или 'female'
-  int skinColor; // Index 0..2
+  String gender;
+  int skinColor;
   int xp;
   int streak;
   int hearts;
-  String hintLanguage; // 'ru' или 'en'
+  String hintLanguage;
   int completedLessonsCount;
+  List<int> completedLessons;
 
   Player({
     required this.nickname,
@@ -58,48 +58,63 @@ class Player {
     this.hearts = 5,
     this.hintLanguage = 'ru',
     this.completedLessonsCount = 0,
+    this.completedLessons = const [],
   });
 
-  // Получаем текущий титул персонажа по XP
   String get rankTitle {
-    if (xp < 500) return 'Бала 👶';
-    if (xp < 1500) return 'Жігіт / Ару 🧑';
-    if (xp < 3000) return 'Еркек / Қайсар 🧔';
-    return 'Батыр ⚔️';
+    if (xp < 500) return 'Бала';
+    if (xp < 1500) return 'Жігіт / Ару';
+    if (xp < 3000) return 'Қайсар';
+    return 'Батыр';
   }
 
-  // Получаем иконку-эмодзи персонажа
+  String get rankIcon {
+    if (xp < 500) return '🌱';
+    if (xp < 1500) return '🧑';
+    if (xp < 3000) return '🛡️';
+    return '⚔️';
+  }
+
   String get avatarEmoji {
     if (gender == 'female') {
       if (xp < 500) return '👧';
       if (xp < 1500) return '👩';
       return '👸';
-    } else {
-      if (xp < 500) return '👦';
-      if (xp < 1500) return '🧑';
-      return '🧔‍♂️';
     }
+    if (xp < 500) return '👦';
+    if (xp < 1500) return '🧑';
+    return '🧔‍♂️';
   }
 
+  bool isCompleted(int lessonId) => completedLessons.contains(lessonId);
+
   Map<String, dynamic> toJson() => {
-    'nickname': nickname,
-    'gender': gender,
-    'skinColor': skinColor,
-    'xp': xp,
-    'streak': streak,
-    'hearts': hearts,
-    'hintLanguage': hintLanguage,
-    'completedLessonsCount': completedLessonsCount,
-  };
+        'nickname': nickname,
+        'gender': gender,
+        'skinColor': skinColor,
+        'xp': xp,
+        'streak': streak,
+        'hearts': hearts,
+        'hintLanguage': hintLanguage,
+        'completedLessonsCount': completedLessonsCount,
+        'completedLessons': completedLessons,
+      };
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
-    nickname: json['nickname'] ?? 'Батыр',
-    gender: json['gender'] ?? 'male',
-    skinColor: json['skinColor'] ?? 0,
-    xp: json['xp'] ?? 0,
-    streak: json['streak'] ?? 1,
-    hearts: json['hearts'] ?? 5,
-    hintLanguage: json['hintLanguage'] ?? 'ru',
-    completedLessonsCount: json['completedLessonsCount'] ?? 0,
-  );
+        nickname: (json['nickname'] as String?)?.trim().isNotEmpty == true
+            ? json['nickname'] as String
+            : 'Батыр',
+        gender: json['gender'] as String? ?? 'male',
+        skinColor: (json['skinColor'] as num?)?.toInt() ?? 0,
+        xp: (json['xp'] as num?)?.toInt() ?? 0,
+        streak: (json['streak'] as num?)?.toInt() ?? 1,
+        hearts: (json['hearts'] as num?)?.toInt() ?? 5,
+        hintLanguage: json['hintLanguage'] as String? ?? 'ru',
+        completedLessonsCount:
+            (json['completedLessonsCount'] as num?)?.toInt() ?? 0,
+        completedLessons: ((json['completedLessons'] as List?) ?? const [])
+            .whereType<num>()
+            .map((e) => e.toInt())
+            .toList(),
+      );
 }

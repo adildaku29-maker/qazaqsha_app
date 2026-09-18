@@ -1,241 +1,87 @@
 import 'package:flutter/material.dart';
-
+import '../data/lessons_data.dart';
 import '../models/app_models.dart';
 import '../services/storage_service.dart';
+import '../theme/app_theme.dart';
 import 'duo_lesson_screen.dart';
 import 'onboarding_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final Player player;
   const MainNavigationScreen({super.key, required this.player});
-
-  @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  @override State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentIndex = 1; // По умолчанию вкладка "Главное" по центру
+  int index = 0;
+  late Player player;
+  @override void initState() { super.initState(); player = widget.player; }
 
-  void _refreshPlayer() async {
-    final updated = await StorageService.getPlayer();
-    if (updated != null) {
-      setState(() => widget.player.xp = updated.xp);
-    }
-  }
+  Future<void> refresh() async { final p = await StorageService.getPlayer(); if (p != null && mounted) setState(() => player = p); }
 
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      _buildLevelTab(), // Слева: Уровень и Герой
-      _buildHomeTab(), // В центре: Главная (Уроки)
-      _buildProfileTab(), // Справа: Профиль
-    ];
+  @override Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(child: IndexedStack(index: index, children: [_home(), _progress(), _profile()])),
+    bottomNavigationBar: NavigationBar(selectedIndex: index, onDestinationSelected: (i) => setState(() => index = i), destinations: const [NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Главная'), NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Герой'), NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Профиль')]),
+  );
 
-    return Scaffold(
-      body: SafeArea(child: pages[_currentIndex]),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: const Color(0xFF58CC02),
-        onTap: (idx) => setState(() => _currentIndex = idx),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shield),
-            label: 'Деңгей (XP)',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home, size: 32),
-            label: 'Басты (Главная)',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
-        ],
-      ),
-    );
-  }
+  Widget _topStats() => Row(children: [Expanded(child: _stat('🔥', '${player.streak}', 'серия')), Expanded(child: _stat('⚡', '${player.xp}', 'XP')), Expanded(child: _stat('❤️', '${player.hearts}', 'сердца'))]);
+  Widget _stat(String icon, String value, String label) => Column(children: [Text('$icon $value', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12))]);
 
-  // 1. Вкладка Слева: Уровень Персонажа
-  Widget _buildLevelTab() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          Text(
-            widget.player.rankTitle,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF58CC02),
-            ),
-          ),
-          const SizedBox(height: 20),
-          CircleAvatar(
-            radius: 60,
-            backgroundColor: const Color(0xFFF0FDF4),
-            child: Text(
-              widget.player.avatarEmoji,
-              style: const TextStyle(fontSize: 70),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'XP: ${widget.player.xp} / 500+ XP',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          LinearProgressIndicator(
-            value: (widget.player.xp % 500) / 500,
-            minHeight: 12,
-            color: const Color(0xFF58CC02),
-          ),
-          const SizedBox(height: 30),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Шкала эволюции героя:\n• 0 - 499 XP: Бала 👶\n• 500 - 1499 XP: Жігіт 🧑\n• 1500 - 2999 XP: Еркек 🧔\n• 3000+ XP: Батыр ⚔️',
-              style: TextStyle(height: 1.6, fontSize: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _home() => RefreshIndicator(onRefresh: refresh, child: ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 28), children: [
+    Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Сәлем, ${player.nickname}! 👋', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)), const Text('Бүгін қазақша сөйлейміз', style: TextStyle(color: Colors.grey))])), Text(player.avatarEmoji, style: const TextStyle(fontSize: 42))]),
+    const SizedBox(height: 18), Card(child: Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: _topStats())), const SizedBox(height: 18),
+    const Text('Путь обучения', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), const SizedBox(height: 6), const Text('10 уроков • базовый уровень → культура', style: TextStyle(color: Colors.grey)), const SizedBox(height: 14),
+    ...allLessons.map((l) => _lessonTile(l)),
+  ]));
 
-  // 2. Вкладка В центре: Главное Дерево Уроков
-  Widget _buildHomeTab() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: const Color(0xFFF7F7F7),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text(
-                '🔥 ${widget.player.streak}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                '⚡ ${widget.player.xp} XP',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.amber,
-                ),
-              ),
-              Text(
-                '❤️ ${widget.player.hearts}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
+  Widget _lessonTile(Lesson l) {
+    final done = player.isCompleted(l.id);
+    final locked = l.id > 1 && !player.isCompleted(l.id - 1);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
+        leading: CircleAvatar(
+          radius: 27,
+          backgroundColor: done
+              ? AppTheme.primary.withOpacity(.12)
+              : Colors.grey.withOpacity(.1),
+          child: Text(l.icon, style: const TextStyle(fontSize: 26)),
         ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: 6,
-            itemBuilder: (context, index) {
-              final double offsetX = (index % 2 == 0) ? 40.0 : -40.0;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Transform.translate(
-                  offset: Offset(offsetX, 0),
-                  child: Center(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        shape: const CircleBorder(),
-                        padding: const EdgeInsets.all(24),
-                        backgroundColor: const Color(0xFF58CC02),
-                      ),
-                      onPressed: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                DuoLessonScreen(player: widget.player),
-                          ),
-                        );
-                        _refreshPlayer();
-                      },
-                      child: Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+        title: Text(
+          '${l.id}. ${l.title}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('${l.category} • ${l.questions.length} заданий'),
+        trailing: Icon(
+          done
+              ? Icons.check_circle
+              : locked
+                  ? Icons.lock_outline
+                  : Icons.arrow_forward_ios,
+          color: done ? AppTheme.primary : Colors.grey,
+        ),
+        onTap: locked
+            ? null
+            : () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DuoLessonScreen(
+                      player: player,
+                      lesson: l,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 3. Вкладка Справа: Профиль и Настройки
-  Widget _buildProfileTab() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                widget.player.avatarEmoji,
-                style: const TextStyle(fontSize: 50),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.player.nickname,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Язык: ${widget.player.hintLanguage.toUpperCase()}',
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Divider(height: 40),
-          const Text(
-            'Настройки',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SwitchListTile(
-            title: const Text('Звуковые эффекты'),
-            value: true,
-            onChanged: (val) {},
-          ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-              onPressed: () async {
-                await StorageService.clearPlayer();
-                if (mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                  );
-                }
+                );
+                await refresh();
               },
-              child: const Text('Сбросить прогресс и персонажа'),
-            ),
-          ),
-        ],
       ),
     );
   }
+
+  Widget _progress() { final progress = player.completedLessonsCount / allLessons.length; return ListView(padding: const EdgeInsets.all(22), children: [Center(child: Text(player.avatarEmoji, style: const TextStyle(fontSize: 82))), Center(child: Text(player.rankIcon + '  ${player.rankTitle}', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold))), const SizedBox(height: 18), Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(children: [Text('${player.xp} XP', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold)), const SizedBox(height: 8), LinearProgressIndicator(value: progress.clamp(0, 1).toDouble(), minHeight: 10, borderRadius: BorderRadius.circular(10)), const SizedBox(height: 8), Text('${player.completedLessonsCount} из ${allLessons.length} уроков завершено')]))), const SizedBox(height: 20), const Text('Эволюция героя', style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold)), const SizedBox(height: 10), _rank('🌱', 'Бала', '0–499 XP', player.xp < 500), _rank('🧑', 'Жігіт / Ару', '500–1499 XP', player.xp >= 500 && player.xp < 1500), _rank('🛡️', 'Қайсар', '1500–2999 XP', player.xp >= 1500 && player.xp < 3000), _rank('⚔️', 'Батыр', '3000+ XP', player.xp >= 3000)]); }
+  Widget _rank(String icon, String title, String xp, bool active) => Card(color: active ? AppTheme.primary.withOpacity(.08) : null, child: ListTile(leading: Text(icon, style: const TextStyle(fontSize: 30)), title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: Text(xp), trailing: active ? const Icon(Icons.check_circle, color: AppTheme.primary) : null));
+
+  Widget _profile() => ListView(padding: const EdgeInsets.all(22), children: [Center(child: Text(player.avatarEmoji, style: const TextStyle(fontSize: 80))), Center(child: Text(player.nickname, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold))), Center(child: Text('Подсказки: ${player.hintLanguage == 'ru' ? 'Русский' : 'English'}', style: const TextStyle(color: Colors.grey))), const SizedBox(height: 24), Card(child: Column(children: [ListTile(leading: const Icon(Icons.bolt), title: const Text('Опыт'), trailing: Text('${player.xp} XP')), ListTile(leading: const Icon(Icons.menu_book), title: const Text('Уроки'), trailing: Text('${player.completedLessonsCount}/10')), ListTile(leading: const Icon(Icons.local_fire_department), title: const Text('Серия'), trailing: Text('${player.streak} дней'))])), const SizedBox(height: 20), OutlinedButton.icon(onPressed: () async { await StorageService.clearPlayer(); if (!mounted) return; Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const OnboardingScreen()), (_) => false); }, icon: const Icon(Icons.restart_alt), label: const Text('Сбросить прогресс'))]);
 }

@@ -1,126 +1,81 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
-import '../widgets/ornament_container.dart';
+import '../services/storage_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final Player player;
 
   const ProfileScreen({super.key, required this.player});
 
   @override
-  Widget build(BuildContext context) {
-    // Автоматическое определение звания на основе XP
-    String getRank(int xp) {
-      if (xp >= 1000) return 'Улы Батыр 👑';
-      if (xp >= 500) return 'Батыр 🛡️';
-      if (xp >= 200) return 'Жасулан 🗡️';
-      return 'Талапкер 🌟';
-    }
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
+class _ProfileScreenState extends State<ProfileScreen> {
+  late Player _player;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = widget.player;
+    _reloadPlayer();
+  }
+
+  Future<void> _reloadPlayer() async {
+    final freshPlayer = await StorageService.getPlayer();
+    if (freshPlayer != null && mounted) {
+      setState(() {
+        _player = freshPlayer;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAF9),
-      appBar: AppBar(
-        title: const Text('Жеке кабинет (Профиль)'),
-        backgroundColor: const Color(0xFF00A896),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Профиль'), centerTitle: true),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Карточка пользователя с орнаментом
-            OrnamentContainer(
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 45,
-                    backgroundColor: const Color(0xFFE5A93C).withOpacity(0.2),
-                    child: Text(
-                      player.avatarEmoji ?? '🇰🇿',
-                      style: const TextStyle(fontSize: 48),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    player.name.isNotEmpty ? player.name : 'Қолданушы',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5A93C),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      getRank(player.xp),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 20),
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: const Color(0xFF00A896).withOpacity(0.2),
+              child: const Icon(
+                Icons.person,
+                size: 60,
+                color: Color(0xFF00A896),
               ),
             ),
-            const SizedBox(height: 20),
-
-            // Статистика
+            const SizedBox(height: 16),
+            // Исправлено: username вместо name
+            Text(
+              _player.username,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
                   child: _buildStatCard(
-                    '⚡ XP Трек',
-                    '${player.xp} XP',
-                    Colors.orange,
+                    title: 'XP Упай',
+                    value: '${_player.xp}',
+                    icon: Icons.bolt,
+                    color: Colors.orange,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildStatCard(
-                    '📚 Уроки',
-                    '${player.completedLessonsCount}/10',
-                    Colors.blue,
+                    title: 'Сабақтар',
+                    value: '${_player.completedLessonsCount}',
+                    icon: Icons.check_circle,
+                    color: Colors.green,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 20),
-
-            // Раздел Ачивок / Достижений
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Жетістіктер (Достижения)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _buildAchievementTile(
-              '🐣',
-              'Алғашқы қадам',
-              'Пройден 1-й урок',
-              player.completedLessonsCount >= 1,
-            ),
-            _buildAchievementTile(
-              '🛡️',
-              'Настоящий Батыр',
-              'Набрано более 500 XP',
-              player.xp >= 500,
-            ),
-            _buildAchievementTile(
-              '🎙️',
-              'Соловей Степи',
-              'Отличная разговорная речь',
-              player.completedLessonsCount >= 3,
             ),
           ],
         ),
@@ -128,67 +83,40 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(String title, String value, Color color) {
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 8)],
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAchievementTile(
-    String icon,
-    String title,
-    String desc,
-    bool unlocked,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: unlocked ? Colors.white : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: unlocked ? const Color(0xFFE5A93C) : Colors.transparent,
-        ),
-      ),
-      child: ListTile(
-        leading: Text(
-          icon,
-          style: TextStyle(fontSize: 32, color: unlocked ? null : Colors.grey),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: unlocked ? Colors.black : Colors.grey,
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-        subtitle: Text(
-          desc,
-          style: TextStyle(color: unlocked ? Colors.black87 : Colors.grey),
-        ),
-        trailing: Icon(
-          unlocked ? Icons.check_circle : Icons.lock,
-          color: unlocked ? Colors.green : Colors.grey,
-        ),
+          const SizedBox(height: 4),
+          Text(title, style: const TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }
