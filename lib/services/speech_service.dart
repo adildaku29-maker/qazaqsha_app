@@ -71,7 +71,7 @@ class SpeechService {
   Future<void> speak(String text) async {
     await _player.stop();
 
-    // Azure Speech: kk-KZ-AigulNeural (female Kazakh voice).
+    // Yandex SpeechKit: female Kazakh voice (saule).
     try {
       final response = await http.post(
         Uri.parse('\$_serverUrl/synthesize'),
