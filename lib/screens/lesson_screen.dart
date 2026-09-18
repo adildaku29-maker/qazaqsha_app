@@ -28,7 +28,41 @@ class _LessonScreenState extends State<LessonScreen>{
 
   @override void initState(){super.initState();pack=lessonFor(widget.topic);_load();}
   Future<void> _load() async{final p=await UserProfileService().profile;profile=p;await speech.init();if(mounted)setState((){});}
-  @override void dispose(){answer.dispose();speech.stop();super.dispose();}
+  @override void dispose(){answer.dispose();speech.dispose();super.dispose();}
+
+  String _normalize(String text){
+    return text
+        .toLowerCase()
+        .replaceAll('ё','е')
+        .replaceAll(RegExp(r'[.!?,;:—–-]'),' ')
+        .replaceAll(RegExp(r'\\s+'),' ')
+        .trim();
+  }
+
+  bool _hasAny(String text,List<String> words)=>words.any(text.contains);
+
+  bool _dialogueAccepted(int turn,String text){
+    final n=_normalize(text);
+    if(n.isEmpty)return false;
+    switch(turn){
+      case 0:
+        final greeting=_hasAny(n,['сәлем','салам']);
+        final wellbeing=_hasAny(n,['жақсы','жаксымын','жақсымын','рахмет','рақмет']);
+        return (greeting&&wellbeing)||wellbeing;
+      case 1:
+        final name=_normalize(profile?.nickname??'');
+        final nameWords=name.split(' ').where((w)=>w.length>1).toList();
+        final hasName=nameWords.isNotEmpty&&nameWords.any(n.contains);
+        final selfName=_hasAny(n,['атым','менің атым','менин атым']);
+        return hasName||selfName;
+      case 2:
+        final city=_hasAny(n,['қала','кала','қалада','калада']);
+        final live=_hasAny(n,['тұрамын','турамын','тұрам','турам']);
+        final astana=_hasAny(n,['астана']);
+        return city||live||astana;
+      default:return false;
+    }
+  }
 
   void next(){
     setState(()=>feedback='');
@@ -36,7 +70,16 @@ class _LessonScreenState extends State<LessonScreen>{
     if(phase==1){if(index<pack.words.length-1){index++;}else{phase=2;index=0;_prepareSentence();}return;}
     if(phase==2){if(selected.join(' ')==pack.sentences[index].kk){correct++;feedback=tx('Дұрыс!','Correct!','Дұрыс!');if(index<pack.sentences.length-1){index++;_prepareSentence();}else{phase=3;index=0;}}else{feedback=tx('Ещё раз собери.','Try again.','Қайта құрастыр.');}return;}
     if(phase==3){if(!taskPassed)return;if(index<pack.sentences.length-1){index++;taskPassed=false;feedback='';return;}phase=4;index=0;answer.clear();taskPassed=false;return;}
-    if(phase==4){final d=pack.dialogue[index];final expected=d.answer.replaceAll('{name}',profile!.nickname);final n=answer.text.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();final e=expected.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();if(n==e||e.split(' ').where((w)=>w.length>2).every(n.contains)){taskPassed=true;feedback=tx('Дұрыс!','Correct!','Дұрыс!');if(index<2){index++;answer.clear();taskPassed=false;feedback='';}else{_finish();}}else{feedback=tx('Жауапты тағы бір рет көр.','Try the answer again.','Жауапты қайта көр.');}return;}
+    if(phase==4){
+      if(!_dialogueAccepted(index,answer.text)){
+        feedback=tx('Жауапты тағы бір рет айтып көр.','Try another answer.','Жауапты тағы бір рет айтып көр.');
+        return;
+      }
+      correct++;
+      if(index<pack.dialogue.length-1){index++;answer.clear();taskPassed=false;feedback=tx('Жақсы!','Great!','Жақсы!');}
+      else{_finish();}
+      return;
+    }
   }
 
   void _prepareSentence(){selected=[];shuffled=pack.sentences[index].kk.split(' ')..shuffle(Random(index+7));}
@@ -48,10 +91,22 @@ class _LessonScreenState extends State<LessonScreen>{
     try{
       await speech.listen(onText:(text){
         if(text.trim().isEmpty)return;
-        final normalized=text.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();
-        final expected=target.toLowerCase().replaceAll(RegExp(r'[.!?,]'),'').trim();
+        if(phase==4){
+          final accepted=_dialogueAccepted(index,text);
+          setState((){
+            listening=false;
+            answer.text=text.trim();
+            taskPassed=accepted;
+            feedback=accepted
+                ? tx('Отлично!','Great!','Жақсы!')
+                : tx('Я услышал: «$text». Попробуй ещё раз.','I heard: “$text”. Try again.','Мен: «$text» деп естідім. Қайта айтып көр.');
+          });
+          return;
+        }
+        final normalized=_normalize(text);
+        final expected=_normalize(target);
         final hit=normalized==expected || expected.split(' ').where((w)=>w.length>2).every(normalized.contains);
-        if(hit && mounted){setState((){listening=false;taskPassed=true;feedback=tx('Отлично!','Great pronunciation!','Жақсы айттың!');if(phase==4)answer.text=target;});speech.stop();}
+        if(hit && mounted){setState((){listening=false;taskPassed=true;feedback=tx('Отлично!','Great pronunciation!','Жақсы айттың!');});}
       });
     }catch(_){if(mounted)setState(()=>listening=false);}
   }
