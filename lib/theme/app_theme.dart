@@ -6,7 +6,7 @@ class AppTheme {
   static ThemeData dark()=>ThemeData(
     useMaterial3:true,brightness:Brightness.dark,scaffoldBackgroundColor:AppColors.navy,
     colorScheme:ColorScheme.fromSeed(seedColor:AppColors.teal,brightness:Brightness.dark),
-    cardTheme:CardTheme(color:AppColors.card,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(24))),
+    cardTheme:CardThemeData(color:AppColors.card,elevation:0,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(24))),
     navigationBarTheme:NavigationBarThemeData(backgroundColor:AppColors.navy2,indicatorColor:AppColors.teal.withValues(alpha:.18)),
     appBarTheme:const AppBarTheme(backgroundColor:Colors.transparent,elevation:0),
   );
