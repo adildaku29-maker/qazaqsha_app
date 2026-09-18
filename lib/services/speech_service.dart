@@ -20,7 +20,7 @@ class SpeechService {
     if (!await _recorder.hasPermission()) return;
     _onText = onText;
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/qazaqsha_voice.wav';
+    final path = '\${dir.path}/qazaqsha_voice.wav';
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.wav,
@@ -41,7 +41,7 @@ class SpeechService {
     try {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$_serverUrl/transcribe'),
+        Uri.parse('\$_serverUrl/transcribe'),
       );
       request.files.add(
         await http.MultipartFile.fromPath(
@@ -54,7 +54,7 @@ class SpeechService {
       final response = await request.send().timeout(const Duration(seconds: 45));
       final body = await response.stream.bytesToString();
       if (response.statusCode != 200) {
-        throw Exception('ASR ${response.statusCode}: $body');
+        throw Exception('ASR \${response.statusCode}: \$body');
       }
 
       final json = jsonDecode(body) as Map<String, dynamic>;
@@ -64,17 +64,32 @@ class SpeechService {
       _onText?.call('');
     } finally {
       _onText = null;
-      try {
-        await File(path).delete();
-      } catch (_) {}
+      try { await File(path).delete(); } catch (_) {}
     }
   }
 
   Future<void> speak(String text) async {
-    final asset = _assetFor(text);
-    if (asset == null) return;
     await _player.stop();
-    await _player.play(AssetSource(asset));
+
+    // Azure Speech: kk-KZ-AigulNeural (female Kazakh voice).
+    try {
+      final response = await http.post(
+        Uri.parse('\$_serverUrl/synthesize'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'text': text}),
+      ).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        final dir = await getTemporaryDirectory();
+        final file = File('\${dir.path}/qazaqsha_tts_\${DateTime.now().microsecondsSinceEpoch}.mp3');
+        await file.writeAsBytes(response.bodyBytes, flush: true);
+        await _player.play(DeviceFileSource(file.path));
+        return;
+      }
+    } catch (_) {}
+
+    final asset = _assetFor(text);
+    if (asset != null) await _player.play(AssetSource(asset));
   }
 
   String? _assetFor(String text) {
