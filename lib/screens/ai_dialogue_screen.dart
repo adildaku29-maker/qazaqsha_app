@@ -3,6 +3,8 @@ import '../theme/app_theme.dart';
 import '../services/ai_tutor_service.dart';
 import '../services/speech_service.dart';
 import '../services/storage_service.dart';
+import '../services/user_profile_service.dart';
+import '../services/translator_service.dart';
 
 class AiDialogueScreen extends StatefulWidget {
   final String topic,level;
@@ -10,18 +12,28 @@ class AiDialogueScreen extends StatefulWidget {
   @override State<AiDialogueScreen> createState()=>_AiDialogueScreenState();
 }
 class _AiDialogueScreenState extends State<AiDialogueScreen> {
-  final ai=DemoAiTutorService(),speech=SpeechService(),storage=StorageService(),input=TextEditingController();
+  final ai=DemoAiTutorService(),speech=SpeechService(),storage=StorageService(),input=TextEditingController(),translator=DemoAiTranslatorService();
   final messages=<Map<String,String>>[];
   bool listening=false,busy=false;
-  @override void initState(){super.initState();messages.add({'r':'ai','t':'Сәлем! 👋 Мен сенің AI ұстазыңмын. Тақырып: '+widget.topic+'. Қазақша жауап бер!'});speech.init();}
+  String lang='ru';
+
+  @override void initState(){super.initState();_loadProfile();speech.init();}
+  Future<void> _loadProfile() async {
+    final p=await UserProfileService().profile;
+    lang=p.language;
+    if(!mounted)return;
+    setState(()=>messages.add({'r':'ai','t':'Сәлем! 👋 Мен сенің AI ұстазыңмын. Тақырып: ${widget.topic}. Қазақша жауап бер!'}));
+  }
   @override void dispose(){input.dispose();speech.stop();super.dispose();}
+
   Future<void> send([String? x]) async {
     final t=(x??input.text).trim(); if(t.isEmpty||busy)return;
     input.clear();setState((){messages.add({'r':'u','t':t});busy=true;});
     final r=await ai.reply(topic:widget.topic,level:widget.level,userText:t);
     await storage.addProgress(xpAdd:r.xp,wordAdd:1);
+    final tr=await translator.translate(kazakhText:r.text,targetLanguage:lang);
     if(!mounted)return;
-    setState((){messages.add({'r':'ai','t':r.text});busy=false;});
+    setState((){messages.add({'r':'ai','t':r.text,'tr':tr.text});busy=false;});
     try{await speech.speak(r.text);}catch(_){}
   }
   Future<void> mic() async {
@@ -32,16 +44,23 @@ class _AiDialogueScreenState extends State<AiDialogueScreen> {
   }
   @override Widget build(BuildContext context)=>Scaffold(
     appBar:AppBar(title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text('AI ұстаз • '+widget.level,style:const TextStyle(fontWeight:FontWeight.w900)),
+      Text('AI ұстаз • ${widget.level}',style:const TextStyle(fontWeight:FontWeight.w900)),
       Text(widget.topic,style:const TextStyle(fontSize:12,color:AppColors.muted)),
     ])),
     body:Column(children:[
       Expanded(child:ListView.builder(padding:const EdgeInsets.all(16),itemCount:messages.length,itemBuilder:(context,i){
         final m=messages[i],me=m['r']=='u';
         return Align(alignment:me?Alignment.centerRight:Alignment.centerLeft,child:Container(
-          constraints:BoxConstraints(maxWidth:MediaQuery.sizeOf(context).width*.82),margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.all(15),
+          constraints:BoxConstraints(maxWidth:MediaQuery.sizeOf(context).width*.82),
+          margin:const EdgeInsets.only(bottom:10),padding:const EdgeInsets.all(15),
           decoration:BoxDecoration(color:me?AppColors.teal.withValues(alpha:.18):AppColors.card,borderRadius:BorderRadius.circular(20)),
-          child:Text(m['t']??'',style:const TextStyle(fontSize:16,height:1.35)),
+          child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(m['t']??'',style:const TextStyle(fontSize:16,height:1.35)),
+            if((m['tr']??'').isNotEmpty) ...[
+              const SizedBox(height:8),const Divider(height:1),
+              Text(m['tr']!,style:const TextStyle(color:AppColors.muted,fontSize:14,height:1.35)),
+            ],
+          ]),
         ));
       })),
       SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(12,5,12,12),child:Row(children:[
