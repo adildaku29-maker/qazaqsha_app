@@ -32,7 +32,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       const SizedBox(height:8),Text(sub,style:const TextStyle(color:AppColors.muted,fontSize:16)),
       const SizedBox(height:28),Expanded(child:child),
       SizedBox(width:double.infinity,child:FilledButton(onPressed:next,child:Text(AppText.get('continue',lang)))),
-    ],
+    ]),
   );
 
   Widget _welcome()=>_shell(
