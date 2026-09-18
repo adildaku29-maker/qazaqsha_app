@@ -148,7 +148,27 @@ class _LessonScreenState extends State<LessonScreen>{
       const SizedBox(height:8),Text(tx('Что это значит?','What does it mean?','Бұл нені білдіреді?'),style:const TextStyle(color:AppColors.muted)),
       const SizedBox(height:22),
       ...options.map((o)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
-        onTap:()=>setState((){if(o==w.tr(lang)){correct++;feedback=tx('Правильно!','Correct!','Дұрыс!');if(index<2){index++;}else{phase=2;index=0;_prepareSentence();}}else{feedback=tx('Не совсем. Попробуй ещё.','Not quite. Try again.','Дұрыс емес. Қайта көр.');}}),
+        onTap: () {
+          setState(() {
+            if (o == w.tr(lang)) {
+              correct++;
+              feedback = tx('Правильно!', 'Correct!', 'Дұрыс!');
+              if (index < 2) {
+                index++;
+              } else {
+                phase = 2;
+                index = 0;
+                _prepareSentence();
+              }
+            } else {
+              feedback = tx(
+                'Не совсем. Попробуй ещё.',
+                'Not quite. Try again.',
+                'Дұрыс емес. Қайта көр.',
+              );
+            }
+          });
+        },
         tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),title:Text(o),
       ))),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(10),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
