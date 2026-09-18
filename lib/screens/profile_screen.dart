@@ -1,76 +1,195 @@
 import 'package:flutter/material.dart';
-import '../models/player.dart';
-import '../widgets/character.dart';
+
+import '../models/app_models.dart';
+import '../widgets/ornament_container.dart';
 
 class ProfileScreen extends StatelessWidget {
   final Player player;
+
   const ProfileScreen({super.key, required this.player});
 
   @override
   Widget build(BuildContext context) {
+    // Автоматическое определение звания на основе XP
+    String getRank(int xp) {
+      if (xp >= 1000) return 'Улы Батыр 👑';
+      if (xp >= 500) return 'Батыр 🛡️';
+      if (xp >= 200) return 'Жасулан 🗡️';
+      return 'Талапкер 🌟';
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Профиль')),
-      body: ListView(
+      backgroundColor: const Color(0xFFF8FAF9),
+      appBar: AppBar(
+        title: const Text('Жеке кабинет (Профиль)'),
+        backgroundColor: const Color(0xFF00A896),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFEAF7F4), Color(0xFFF4F1FF)]),
-              borderRadius: BorderRadius.circular(25),
+        child: Column(
+          children: [
+            // Карточка пользователя с орнаментом
+            OrnamentContainer(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 45,
+                    backgroundColor: const Color(0xFFE5A93C).withOpacity(0.2),
+                    child: Text(
+                      player.avatarEmoji ?? '🇰🇿',
+                      style: const TextStyle(fontSize: 48),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    player.name.isNotEmpty ? player.name : 'Қолданушы',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE5A93C),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      getRank(player.xp),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(children: [
-              CharacterWidget(player: player, size: 105),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(player.nickname, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                Text(rank(player.level), style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0F766E))),
-                Text(rankRu(player.level), style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
-                const SizedBox(height: 8),
-                Text('${player.xp} XP · ${player.completedLessons.length} уроков', style: const TextStyle(color: Color(0xFF6B7280))),
-              ])),
-            ]),
+            const SizedBox(height: 20),
+
+            // Статистика
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    '⚡ XP Трек',
+                    '${player.xp} XP',
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    '📚 Уроки',
+                    '${player.completedLessonsCount}/10',
+                    Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Раздел Ачивок / Достижений
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Жетістіктер (Достижения)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildAchievementTile(
+              '🐣',
+              'Алғашқы қадам',
+              'Пройден 1-й урок',
+              player.completedLessonsCount >= 1,
+            ),
+            _buildAchievementTile(
+              '🛡️',
+              'Настоящий Батыр',
+              'Набрано более 500 XP',
+              player.xp >= 500,
+            ),
+            _buildAchievementTile(
+              '🎙️',
+              'Соловей Степи',
+              'Отличная разговорная речь',
+              player.completedLessonsCount >= 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 8)],
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 25),
-          const _Dual('Статистика', 'Статистика'),
-          const SizedBox(height: 12),
-          _item(Icons.local_fire_department_outlined, 'Серия', 'Серия', '${player.streak} дней'),
-          _item(Icons.menu_book_outlined, 'Сабақтар', 'Уроки', '${player.completedLessons.length}'),
-          _item(Icons.star_outline, 'Тәжірибе', 'Опыт', '${player.xp} XP'),
-          _item(Icons.emoji_events_outlined, 'Жетістіктер', 'Достижения', '${player.achievements.length}'),
-          const SizedBox(height: 22),
-          const _Dual('Баптаулар', 'Настройки'),
-          const SizedBox(height: 12),
-          _item(Icons.language, 'Көмек тілі', 'Язык подсказок', player.hintLanguage),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
   }
 
-  Widget _item(IconData icon, String kz, String ru, String value) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE5E7EB))),
-    child: ListTile(
-      leading: Icon(icon, color: const Color(0xFF0F766E)),
-      title: Text(kz, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(ru, style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
-      trailing: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
-    ),
-  );
-
-  String rank(int l) => ['Бала', 'Жас өрен', 'Сарбаз', 'Батыр', 'Сардар', 'Хан'][((l - 1).clamp(0, 5))];
-  String rankRu(int l) => ['Ребёнок', 'Юный', 'Воин', 'Герой', 'Сардар', 'Хан'][((l - 1).clamp(0, 5))];
-}
-
-class _Dual extends StatelessWidget {
-  final String a, b;
-  const _Dual(this.a, this.b);
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(a, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-      Text(b, style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
-    ],
-  );
+  Widget _buildAchievementTile(
+    String icon,
+    String title,
+    String desc,
+    bool unlocked,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: unlocked ? Colors.white : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: unlocked ? const Color(0xFFE5A93C) : Colors.transparent,
+        ),
+      ),
+      child: ListTile(
+        leading: Text(
+          icon,
+          style: TextStyle(fontSize: 32, color: unlocked ? null : Colors.grey),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: unlocked ? Colors.black : Colors.grey,
+          ),
+        ),
+        subtitle: Text(
+          desc,
+          style: TextStyle(color: unlocked ? Colors.black87 : Colors.grey),
+        ),
+        trailing: Icon(
+          unlocked ? Icons.check_circle : Icons.lock,
+          color: unlocked ? Colors.green : Colors.grey,
+        ),
+      ),
+    );
+  }
 }
