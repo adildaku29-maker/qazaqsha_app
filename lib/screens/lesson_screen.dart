@@ -122,7 +122,7 @@ class _LessonScreenState extends State<LessonScreen>{
       const SizedBox(height:8),Text(tx('Что это значит?','What does it mean?','Бұл нені білдіреді?'),style:const TextStyle(color:AppColors.muted)),
       const SizedBox(height:22),
       ...options.map((o)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
-        onTap:()=>setState((){if(o==w.tr(lang)){correct++;feedback=tx('Правильно!','Correct!','Дұрыс!');if(index<2){index++;}else{phase=2;index=0;_prepareSentence();}}else{feedback=tx('Не совсем. Попробуй ещё.','Not quite. Try again.','Дұрыс емес. Қайта көр.');}}}),
+        onTap:()=>setState((){if(o==w.tr(lang)){correct++;feedback=tx('Правильно!','Correct!','Дұрыс!');if(index<2){index++;}else{phase=2;index=0;_prepareSentence();}}else{feedback=tx('Не совсем. Попробуй ещё.','Not quite. Try again.','Дұрыс емес. Қайта көр.');}}),
         tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),title:Text(o),
       ))),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(10),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
@@ -137,7 +137,7 @@ class _LessonScreenState extends State<LessonScreen>{
       _counter(index+1,3),const SizedBox(height:20),
       Text(s.tr(lang),style:const TextStyle(fontSize:18,color:AppColors.muted),textAlign:TextAlign.center),
       const SizedBox(height:22),
-      Container(width:double.infinity,minHeight:70,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),child:Wrap(spacing:8,runSpacing:8,children:selected.map((x)=>Chip(label:Text(x))).toList())),
+      Container(width:double.infinity,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),child:Wrap(spacing:8,runSpacing:8,children:selected.map((x)=>Chip(label:Text(x))).toList())),
       const SizedBox(height:18),
       Wrap(spacing:8,runSpacing:10,children:shuffled.where((x)=>!selected.contains(x)).map((x)=>ActionChip(label:Text(x),onPressed:()=>setState(()=>selected.add(x)))).toList()),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(12),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
