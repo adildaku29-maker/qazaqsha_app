@@ -192,13 +192,23 @@ class _LessonScreenState extends State<LessonScreen>{
   }
 
   Widget _speaking(){
-    final s=pack.sentences[index];
+    final target = widget.topic == 'Танысу'
+        ? pack.dialogue[index].question
+        : pack.sentences[index].kk;
+    final translation = widget.topic == 'Танысу'
+        ? pack.dialogue[index].q(lang)
+        : pack.sentences[index].tr(lang);
     return Column(children:[
       _counter(index+1,3),const SizedBox(height:25),
-      Text(s.kk,style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
-      const SizedBox(height:10),Text(s.tr(lang),style:const TextStyle(color:AppColors.muted,fontSize:16),textAlign:TextAlign.center),
+      Text(target,style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
+      const SizedBox(height:8),
+      IconButton(
+        onPressed:()=>speech.speak(target),
+        icon:const Icon(Icons.volume_up_rounded,color:AppColors.teal,size:30),
+      ),
+      Text(translation,style:const TextStyle(color:AppColors.muted,fontSize:16),textAlign:TextAlign.center),
       const SizedBox(height:28),
-      CircleAvatar(radius:42,backgroundColor:AppColors.teal.withValues(alpha:.15),child:IconButton(iconSize:40,onPressed:()=>_listen(target:s.kk),icon:Icon(listening?Icons.stop:Icons.mic,color:AppColors.teal))),
+      CircleAvatar(radius:42,backgroundColor:AppColors.teal.withValues(alpha:.15),child:IconButton(iconSize:40,onPressed:()=>_listen(target:target),icon:Icon(listening?Icons.stop:Icons.mic,color:AppColors.teal))),
       const SizedBox(height:14),Text(tx('Нажми и произнеси фразу.','Tap and say the phrase.','Басып, сөйлемді айт.'),style:const TextStyle(color:AppColors.muted)),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(14),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
     ]);
@@ -233,7 +243,17 @@ class _LessonScreenState extends State<LessonScreen>{
                       style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.teal),
                     ),
                     const SizedBox(height: 6),
-                    Text(q, style: const TextStyle(fontSize: 17)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: Text(q, style: const TextStyle(fontSize: 17))),
+                        IconButton(
+                          onPressed: () => speech.speak(d.question),
+                          icon: const Icon(Icons.volume_up_rounded, color: AppColors.teal),
+                          tooltip: tx('Прослушать', 'Listen', 'Тыңдау'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
