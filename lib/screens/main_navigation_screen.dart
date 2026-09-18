@@ -72,7 +72,7 @@ class _Lessons extends StatelessWidget {
     Text(AppText.get('lessons',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),
     Text(AppText.get('lessons_sub',language),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),
     ...topics.map((t)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(
-      onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>AiDialogueScreen(topic:t.title,level:t.level))),
+      onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:t.title,level:t.level))),
       tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
       leading:Text(t.emoji,style:const TextStyle(fontSize:30)),title:Text(t.title,style:const TextStyle(fontWeight:FontWeight.w800)),
       subtitle:Text(t.subtitle),trailing:Text(t.level,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
