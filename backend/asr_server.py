@@ -15,15 +15,9 @@ MODEL_ID = "shyngys879/kazakh-whisper-large-v3-turbo"
 DEVICE = 0 if torch.cuda.is_available() else -1
 DTYPE = torch.float16 if torch.cuda.is_available() else torch.float32
 
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY", "").strip()
-AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "").strip()
-AZURE_SPEECH_VOICE = os.getenv("AZURE_SPEECH_VOICE", "kk-KZ-AigulNeural").strip()
-AZURE_TTS_URL = (
-    f"https://{AZURE_SPEECH_REGION}.tts.speech.microsoft.com"
-    "/cognitiveservices/v1"
-    if AZURE_SPEECH_REGION
-    else ""
- )
+YANDEX_API_KEY = os.getenv("YANDEX_API_KEY", "").strip()
+YANDEX_TTS_VOICE = os.getenv("YANDEX_TTS_VOICE", "saule").strip()
+YANDEX_TTS_URL = "https://tts.api.ml.yandexcloud.kz:443/tts/v3/utteranceSynthesis"
 
 TTS_CACHE: dict[str, bytes] = {}
 
@@ -47,9 +41,9 @@ def health():
         "model": MODEL_ID,
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "tts": {
-            "provider": "Microsoft Azure Speech",
-            "voice": AZURE_SPEECH_VOICE,
-            "configured": bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION),
+            "provider": "Yandex SpeechKit",
+            "voice": YANDEX_TTS_VOICE,
+            "configured": bool(YANDEX_API_KEY),
         },
     }
 
@@ -80,41 +74,53 @@ async def synthesize(request: SynthesizeRequest):
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
 
-    if not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
-        raise HTTPException(status_code=503, detail="Azure Speech is not configured. Set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION.")
+    if not YANDEX_API_KEY:
+        raise HTTPException(status_code=503, detail="Yandex SpeechKit is not configured. Set YANDEX_API_KEY.")
 
-    cache_key = hashlib.sha256(f"{AZURE_SPEECH_VOICE}\0{text}".encode("utf-8")).hexdigest()
+    cache_key = hashlib.sha256(f"{YANDEX_TTS_VOICE}\0{text}".encode("utf-8")).hexdigest()
     cached = TTS_CACHE.get(cache_key)
     if cached is not None:
-        return Response(content=cached, media_type="audio/mpeg")
+        return Response(content=cached, media_type="audio/wav")
 
-    ssml = f'''<?xml version="1.0" encoding="UTF-8"?>
-<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="kk-KZ">
-  <voice name="{html.escape(AZURE_SPEECH_VOICE)}">
-    {html.escape(text)}
-  </voice>
-</speak>'''
+    payload = {
+        "text": text,
+        "hints": [{"voice": YANDEX_TTS_VOICE}],
+        "outputAudioSpec": {
+            "containerAudio": {
+                "containerAudioType": "WAV"
+            }
+        },
+        "loudnessNormalizationType": "LUFS",
+    }
 
     import httpx
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            azure_response = await client.post(
-                AZURE_TTS_URL,
-                content=ssml.encode("utf-8"),
+            yandex_response = await client.post(
+                YANDEX_TTS_URL,
+                json=payload,
                 headers={
-                    "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
-                    "Content-Type": "application/ssml+xml",
-                    "X-Microsoft-OutputFormat": "audio-24khz-96kbitrate-mono-mp3",
-                    "User-Agent": "Qazaqsha/2.0",
+                    "Authorization": f"Api-Key {YANDEX_API_KEY}",
+                    "Content-Type": "application/json",
                 },
             )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Azure TTS request failed: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Yandex TTS request failed: {exc}") from exc
 
-    if azure_response.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Azure TTS {azure_response.status_code}: {azure_response.text[:500]}")
+    if yandex_response.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Yandex TTS {yandex_response.status_code}: {yandex_response.text[:500]}",
+        )
 
-    audio = azure_response.content
+    try:
+        response_json = yandex_response.json()
+        audio_b64 = response_json["result"]["audioChunk"]["data"]
+        import base64
+        audio = base64.b64decode(audio_b64)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Invalid Yandex TTS response: {exc}") from exc
+
     TTS_CACHE[cache_key] = audio
-    return Response(content=audio, media_type="audio/mpeg")
+    return Response(content=audio, media_type="audio/wav")
