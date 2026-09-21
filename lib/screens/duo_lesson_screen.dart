@@ -128,9 +128,11 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
       return;
     }
 
+    // Switch the UI to "recording" immediately. The native Android
+    // recorder can start before the async platform call returns.
     setState(() {
-      starting = true;
-      listening = false;
+      starting = false;
+      listening = true;
       transcript = '';
       processing = false;
     });
