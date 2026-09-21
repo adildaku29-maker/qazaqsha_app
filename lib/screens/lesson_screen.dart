@@ -418,8 +418,24 @@ class _LessonScreenState extends State<LessonScreen>{
       ),
       Text(translation,style:const TextStyle(color:AppColors.muted,fontSize:16),textAlign:TextAlign.center),
       const SizedBox(height:28),
-      CircleAvatar(radius:42,backgroundColor:AppColors.teal.withValues(alpha:.15),child:IconButton(iconSize:40,onPressed:()=>_listen(target:target),icon:Icon(listening?Icons.stop:Icons.mic,color:AppColors.teal))),
-      const SizedBox(height:14),Text(tx('Нажми и произнеси фразу.','Tap and say the phrase.','Басып, сөйлемді айт.'),style:const TextStyle(color:AppColors.muted)),
+      CircleAvatar(
+        radius:42,
+        backgroundColor:AppColors.teal.withValues(alpha:.15),
+        child:_recognizing
+            ? const Icon(Icons.hourglass_top_rounded,color:AppColors.teal,size:38)
+            : IconButton(
+                iconSize:40,
+                onPressed:()=>_listen(target:target),
+                icon:Icon(listening?Icons.stop:Icons.mic,color:AppColors.teal),
+              ),
+      ),
+      const SizedBox(height:14),
+      Text(
+        _recognizing
+            ? tx('Распознаём речь…','Recognizing speech…','Сөйлеуді танып жатырмыз…')
+            : tx('Нажми и произнеси фразу.','Tap and say the phrase.','Басып, сөйлемді айт.'),
+        style:const TextStyle(color:AppColors.muted),
+      ),
       if(feedback.isNotEmpty)Padding(padding:const EdgeInsets.all(14),child:Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))),
     ]);
   }
@@ -486,11 +502,13 @@ class _LessonScreenState extends State<LessonScreen>{
           children: [
             IconButton(
               onPressed: () => _listen(target: expected),
-              icon: Icon(
-                listening ? Icons.stop_circle : Icons.mic,
-                color: AppColors.teal,
-                size: 34,
-              ),
+              icon: _recognizing
+                  ? const Icon(Icons.hourglass_top_rounded,color:AppColors.teal,size:34)
+                  : Icon(
+                      listening ? Icons.stop_circle : Icons.mic,
+                      color: AppColors.teal,
+                      size: 34,
+                    ),
             ),
             Expanded(
               child: TextField(
