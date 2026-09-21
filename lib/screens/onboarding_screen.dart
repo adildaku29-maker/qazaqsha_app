@@ -39,7 +39,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>{
     const SizedBox(height:10),const Text('Я помогу тебе начать говорить по-казахски уверенно и без стресса.',textAlign:TextAlign.center,style:TextStyle(color:AppColors.muted,fontSize:16,height:1.4))
   ]));
   Widget _questions(Key key)=>_base(key:key,button:'Продолжить',onPressed:goal.isEmpty?null:_next,child:ListView(children:[
-    const SizedBox(height:30),const Text('Зачем вы хотите изучить казахский?',style:TextStyle(fontSize:29,fontWeight:FontWeight.w900)),
+    const SizedBox(height:8),
+    const Align(alignment:Alignment.centerLeft,child:AishaHero(scale:.42)),
+    const SizedBox(height:4),
+    const Text('Айша',style:TextStyle(color:AppColors.teal,fontWeight:FontWeight.w900,fontSize:15)),
+    const SizedBox(height:18),
+    const Text('Зачем вы хотите изучить казахский?',style:TextStyle(fontSize:29,fontWeight:FontWeight.w900)),
     const SizedBox(height:10),const Text('Выберите то, что подходит вам. Это поможет настроить путь обучения.',style:TextStyle(color:AppColors.muted,height:1.4)),
     const SizedBox(height:24),...goals.map((g)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(onTap:()=>setState(()=>goal=g),tileColor:goal==g?AppColors.teal.withValues(alpha:.18):AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),leading:Icon(_goalIcon(g),color:goal==g?AppColors.teal:AppColors.muted),title:Text(g,style:const TextStyle(fontWeight:FontWeight.w700)),trailing:goal==g?const Icon(Icons.check_circle,color:AppColors.teal):null)))
   ]));
