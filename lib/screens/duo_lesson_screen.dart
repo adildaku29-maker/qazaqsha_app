@@ -79,10 +79,15 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   Future<void> startListening() async {
     if (processing || starting || answered) return;
 
-    if (listening) {
+    // AudioRecorder is the source of truth: Android may keep recording even
+    // if a UI state update was interrupted.
+    final recorderIsListening = speech.isListening;
+
+    if (listening || recorderIsListening) {
       debugPrint('[QAZAQSHA][UI] STOP tap received');
       setState(() {
         listening = false;
+        starting = false;
         processing = true;
       });
 
@@ -295,7 +300,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
           shape: BoxShape.circle,
           color: listening ? Colors.red.withOpacity(.12) : AppTheme.primary.withOpacity(.10),
           border: Border.all(
-            color: listening ? Colors.red : AppTheme.primary,
+            color: (listening || speech.isListening) ? Colors.red : AppTheme.primary,
             width: 3,
           ),
         ),
@@ -306,7 +311,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
                 child: CircularProgressIndicator(strokeWidth: 4),
               )
             : Icon(
-                listening ? Icons.stop : Icons.mic,
+                (listening || speech.isListening) ? Icons.stop : Icons.mic,
                 size: 58,
                 color: listening ? Colors.red : AppTheme.primary,
               ),
@@ -318,7 +323,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
           ? 'Запускаю микрофон…'
           : processing
               ? 'Распознаю речь…'
-              : listening
+              : (listening || speech.isListening)
                   ? 'Слушаю… говори сейчас'
                   : answered
                       ? 'Распознавание завершено'
