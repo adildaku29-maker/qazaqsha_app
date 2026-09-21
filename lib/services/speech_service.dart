@@ -52,10 +52,33 @@ class SpeechService {
         path: path,
       );
 
-      _isListening = true;
-      print('[QAZAQSHA][MIC] AudioRecorder.start() SUCCESS');
-      return true;
+      // Some Android devices can start the native recorder before the
+      // platform Future finishes. Ask the recorder for its real state.
+      final nativeRecording = await _recorder.isRecording();
+      _isListening = nativeRecording;
+      print(
+        '[QAZAQSHA][MIC] AudioRecorder.start() SUCCESS '
+        'nativeRecording=$nativeRecording',
+      );
+      return nativeRecording;
     } catch (e, stack) {
+      // Do not immediately tell the UI that recording failed. On Android,
+      // native recording can already be active when the platform call
+      // reports an exception.
+      try {
+        final nativeRecording = await _recorder.isRecording();
+        if (nativeRecording) {
+          _isListening = true;
+          print(
+            '[QAZAQSHA][MIC] start() reported ERROR, '
+            'but native recorder is ACTIVE: $e',
+          );
+          return true;
+        }
+      } catch (stateError) {
+        print('[QAZAQSHA][MIC] failed to read native state: $stateError');
+      }
+
       _isListening = false;
       print('[QAZAQSHA][MIC] AudioRecorder.start() ERROR: $e');
       print(stack);
