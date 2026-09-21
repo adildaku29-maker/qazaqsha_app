@@ -5,7 +5,8 @@ class UserProfile {
   final String language;
   final String character;
   final int age;
-  const UserProfile({required this.nickname,required this.language,required this.character,this.age=0});
+  final String goal;
+  const UserProfile({required this.nickname,required this.language,required this.character,this.age=0,this.goal=''});
 }
 
 class UserProfileService {
@@ -18,6 +19,7 @@ class UserProfileService {
       language:p.getString('ui_language')??'ru',
       character:p.getString('character')??'🦅',
       age:p.getInt('age')??0,
+      goal:p.getString('learning_goal')??'',
     );
   }
   Future<void> save({required String nickname,required String language,required String character,String? goal,int age=0})async{
