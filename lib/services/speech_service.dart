@@ -35,6 +35,10 @@ class SpeechService {
           encoder: AudioEncoder.wav,
           sampleRate: 16000,
           numChannels: 1,
+          androidConfig: AndroidRecordConfig(
+            audioSource: AndroidAudioSource.voiceRecognition,
+            manageBluetooth: false,
+          ),
         ),
         path: path,
       );
