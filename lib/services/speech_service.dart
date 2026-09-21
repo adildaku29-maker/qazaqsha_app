@@ -7,81 +7,188 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 class SpeechService {
-  static const String _serverUrl =
-      String.fromEnvironment('ASR_URL', defaultValue: 'http://10.0.2.2:8000');
-
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
+  bool _isListening = false;
   void Function(String text)? _onText;
 
-  Future<bool> init() => _recorder.hasPermission();
+  static const String serverUrl = String.fromEnvironment(
+    'ASR_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
-  Future<void> listen({required void Function(String) onText}) async {
-    if (!await _recorder.hasPermission()) return;
-    _onText = onText;
-    final dir = await getTemporaryDirectory();
-    final path = '\${dir.path}/qazaqsha_voice.wav';
-    await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.wav,
-        sampleRate: 16000,
-        numChannels: 1,
-        echoCancel: true,
-        noiseSuppress: true,
-        autoGain: true,
-      ),
-      path: path,
-    );
+  bool get isListening => _isListening;
+
+  Future<bool> init() => initialize();
+
+  Future<bool> initialize() async {
+    final granted = await _recorder.hasPermission();
+    print('[QAZAQSHA][MIC] permission=$granted');
+    return granted;
   }
 
-  Future<void> stop() async {
-    final path = await _recorder.stop();
-    if (path == null) return;
+  Future<bool> listen({void Function(String text)? onText}) async {
+    if (_isListening) return true;
+
+    _onText = onText;
+    print('[QAZAQSHA][MIC] listen() started');
+
+    final hasPermission = await _recorder.hasPermission();
+    print('[QAZAQSHA][MIC] permission=$hasPermission');
+    if (!hasPermission) {
+      _onText = null;
+      return false;
+    }
+
+    final directory = await getTemporaryDirectory();
+    final path =
+        '${directory.path}/qazaqsha_recording_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+    print('[QAZAQSHA][MIC] recording path=$path');
+    print('[QAZAQSHA][MIC] calling AudioRecorder.start()');
 
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('\$_serverUrl/transcribe'),
-      );
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          path,
-          filename: 'qazaqsha.wav',
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
+          androidConfig: AndroidRecordConfig(
+            audioSource: AndroidAudioSource.defaultSource,
+            manageBluetooth: false,
+          ),
         ),
+        path: path,
       );
 
-      final response = await request.send().timeout(const Duration(seconds: 45));
-      final body = await response.stream.bytesToString();
-      if (response.statusCode != 200) {
-        throw Exception('ASR \${response.statusCode}: \$body');
+      final nativeRecording = await _recorder.isRecording();
+      _isListening = nativeRecording;
+
+      print(
+        '[QAZAQSHA][MIC] AudioRecorder.start() SUCCESS '
+        'nativeRecording=$nativeRecording',
+      );
+
+      if (!nativeRecording) {
+        _onText = null;
       }
 
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      final text = (json['text'] as String?)?.trim() ?? '';
-      if (text.isNotEmpty) _onText?.call(text);
-    } catch (_) {
-      _onText?.call('');
+      return nativeRecording;
+    } catch (e, stack) {
+      try {
+        final nativeRecording = await _recorder.isRecording();
+        if (nativeRecording) {
+          _isListening = true;
+          print(
+            '[QAZAQSHA][MIC] start() reported ERROR, '
+            'but native recorder is ACTIVE: $e',
+          );
+          return true;
+        }
+      } catch (stateError) {
+        print('[QAZAQSHA][MIC] failed to read native state: $stateError');
+      }
+
+      _isListening = false;
+      _onText = null;
+      print('[QAZAQSHA][MIC] AudioRecorder.start() ERROR: $e');
+      print(stack);
+      rethrow;
+    }
+  }
+
+  Future<String?> stop() async {
+    if (!_isListening) return null;
+
+    print('[QAZAQSHA][MIC] stop()');
+    final path = await _recorder.stop();
+    _isListening = false;
+    print('[QAZAQSHA][MIC] recorder stopped: $path');
+
+    if (path == null) {
+      _onText = null;
+      return null;
+    }
+
+    try {
+      final text = await _sendToWhisper(path);
+      if (text != null && _onText != null) {
+        _onText!(text);
+      }
+      return text;
     } finally {
       _onText = null;
-      try { await File(path).delete(); } catch (_) {}
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    }
+  }
+
+  Future<String?> _sendToWhisper(String path) async {
+    final file = File(path);
+    if (!await file.exists()) return null;
+
+    print('[QAZAQSHA][ASR] uploading $path to $serverUrl/transcribe');
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$serverUrl/transcribe'),
+    );
+
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        path,
+        filename: 'recording.wav',
+      ),
+    );
+
+    final response =
+        await request.send().timeout(const Duration(seconds: 45));
+    final body = await response.stream.bytesToString();
+
+    print(
+      '[QAZAQSHA][ASR] response=${response.statusCode} body=$body',
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Whisper server error ${response.statusCode}: $body',
+      );
+    }
+
+    final data = jsonDecode(body) as Map<String, dynamic>;
+    return data['text']?.toString().trim();
+  }
+
+  Future<void> cancel() async {
+    if (_isListening) {
+      print('[QAZAQSHA][MIC] cancel()');
+      final path = await _recorder.stop();
+      _isListening = false;
+      _onText = null;
+
+      if (path != null) {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      }
     }
   }
 
   Future<void> speak(String text) async {
     await _player.stop();
 
-    // Yandex SpeechKit: female Kazakh voice (saule).
     try {
       final response = await http.post(
-        Uri.parse('\$_serverUrl/synthesize'),
+        Uri.parse('$serverUrl/synthesize'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode({'text': text}),
       ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         final dir = await getTemporaryDirectory();
-        final file = File('\${dir.path}/qazaqsha_tts_\${DateTime.now().microsecondsSinceEpoch}.mp3');
+        final file = File(
+          '${dir.path}/qazaqsha_tts_${DateTime.now().microsecondsSinceEpoch}.mp3',
+        );
         await file.writeAsBytes(response.bodyBytes, flush: true);
         await _player.play(DeviceFileSource(file.path));
         return;
@@ -89,7 +196,9 @@ class SpeechService {
     } catch (_) {}
 
     final asset = _assetFor(text);
-    if (asset != null) await _player.play(AssetSource(asset));
+    if (asset != null) {
+      await _player.play(AssetSource(asset));
+    }
   }
 
   String? _assetFor(String text) {
@@ -104,8 +213,8 @@ class SpeechService {
     return map[text];
   }
 
-  void dispose() {
-    _recorder.dispose();
-    _player.dispose();
+  Future<void> dispose() async {
+    await _recorder.dispose();
+    await _player.dispose();
   }
 }
