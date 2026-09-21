@@ -66,19 +66,17 @@ class SpeechService {
         path: path,
       );
 
-      final nativeRecording = await _recorder.isRecording();
-      _isListening = nativeRecording;
+      // Do not call isRecording() here. On some Android/record plugin
+      // combinations that platform Future can remain pending even though
+      // the native recorder has already started successfully.
+      _isListening = true;
 
       print(
         '[QAZAQSHA][MIC] AudioRecorder.start() SUCCESS '
-        'nativeRecording=$nativeRecording',
+        'nativeRecording=true',
       );
 
-      if (!nativeRecording) {
-        _onText = null;
-      }
-
-      return nativeRecording;
+      return true;
     } catch (e, stack) {
       try {
         final nativeRecording = await _recorder.isRecording();
