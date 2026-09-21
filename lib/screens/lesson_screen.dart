@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
@@ -22,13 +23,21 @@ class _LessonScreenState extends State<LessonScreen>{
   List<String> shuffled=[];
   bool listening=false,done=false,taskPassed=false;
   String feedback='';
+  Timer? _maxRecordingTimer;
+  bool _stoppingRecording=false;
 
   String get lang=>profile?.language??'ru';
   String tx(String ru,String en,String kk)=>lang=='en'?en:lang=='kk'?kk:ru;
 
   @override void initState(){super.initState();pack=lessonFor(widget.topic);_load();}
   Future<void> _load() async{final p=await UserProfileService().profile;profile=p;await speech.init();if(mounted)setState((){});}
-  @override void dispose(){answer.dispose();speech.dispose();super.dispose();}
+  @override void dispose(){
+    _maxRecordingTimer?.cancel();
+    speech.cancel();
+    answer.dispose();
+    speech.dispose();
+    super.dispose();
+  }
 
   String _normalize(String text){
     return text
@@ -85,30 +94,121 @@ class _LessonScreenState extends State<LessonScreen>{
   void _prepareSentence(){selected=[];shuffled=pack.sentences[index].kk.split(' ')..shuffle(Random(index+7));}
 
   Future<void> _listen({required String target}) async{
-    if(listening){await speech.stop();if(mounted)setState(()=>listening=false);return;}
-    final ok=await speech.init();if(!ok)return;
-    if(mounted)setState(()=>listening=true);
+    if(listening){
+      if(_stoppingRecording)return;
+      _stoppingRecording=true;
+      _maxRecordingTimer?.cancel();
+      try{
+        final text=await speech.stop();
+        if(mounted && text!=null && text.trim().isNotEmpty){
+          _handleRecognizedText(text,target);
+        }
+      }catch(e){
+        if(mounted)setState(()=>feedback=tx('Ошибка распознавания: $e','Recognition error: $e','Тану қатесі: $e'));
+      }finally{
+        _stoppingRecording=false;
+        if(mounted && speech.isListening==false && !taskPassed){
+          setState(()=>listening=false);
+        }
+      }
+      return;
+    }
+
+    final ok=await speech.init();
+    if(!ok)return;
+
+    if(mounted){
+      setState((){
+        listening=true;
+        feedback='';
+      });
+    }
+
+    _stoppingRecording=false;
+    _maxRecordingTimer?.cancel();
+    print('[QAZAQSHA][MIC] lesson auto-stop monitor started');
+
+    // Start the safety timeout BEFORE awaiting speech.listen().
+    // This screen can otherwise wait indefinitely for the record plugin
+    // Future even though the native recorder is already active.
+    _maxRecordingTimer=Timer(const Duration(seconds:7),(){
+      if(!mounted || !listening || _stoppingRecording)return;
+      print('[QAZAQSHA][MIC] lesson auto-stop: hard timeout 7s');
+      _stopLessonRecording(target);
+    });
+
     try{
       await speech.listen(onText:(text){
         if(text.trim().isEmpty)return;
-        if(phase==4){
-          final accepted=_dialogueAccepted(index,text);
-          setState((){
-            listening=false;
-            answer.text=text.trim();
-            taskPassed=accepted;
-            feedback=accepted
-                ? tx('Отлично!','Great!','Жақсы!')
-                : tx('Я услышал: «$text». Попробуй ещё раз.','I heard: “$text”. Try again.','Мен: «$text» деп естідім. Қайта айтып көр.');
-          });
-          return;
-        }
-        final normalized=_normalize(text);
-        final expected=_normalize(target);
-        final hit=normalized==expected || expected.split(' ').where((w)=>w.length>2).every(normalized.contains);
-        if(hit && mounted){setState((){listening=false;taskPassed=true;feedback=tx('Отлично!','Great pronunciation!','Жақсы айттың!');});}
+        _maxRecordingTimer?.cancel();
+        _maxRecordingTimer=null;
+        _handleRecognizedText(text,target);
       });
-    }catch(_){if(mounted)setState(()=>listening=false);}
+      print('[QAZAQSHA][MIC] lesson listen() returned');
+    }catch(e){
+      _maxRecordingTimer?.cancel();
+      _maxRecordingTimer=null;
+      if(mounted){
+        setState((){
+          listening=false;
+          feedback=tx('Ошибка микрофона: $e','Microphone error: $e','Микрофон қатесі: $e');
+        });
+      }
+    }
+  }
+
+  Future<void> _stopLessonRecording(String target) async{
+    if(_stoppingRecording)return;
+    _stoppingRecording=true;
+    _maxRecordingTimer?.cancel();
+    _maxRecordingTimer=null;
+
+    try{
+      final text=await speech.stop();
+      if(text!=null && text.trim().isNotEmpty){
+        _handleRecognizedText(text,target);
+      }else if(mounted){
+        setState(()=>listening=false);
+      }
+    }catch(e){
+      if(mounted){
+        setState((){
+          listening=false;
+          feedback=tx('Ошибка распознавания: $e','Recognition error: $e','Тану қатесі: $e');
+        });
+      }
+    }finally{
+      _stoppingRecording=false;
+    }
+  }
+
+  void _handleRecognizedText(String text,String target){
+    if(!mounted)return;
+
+    if(phase==4){
+      final accepted=_dialogueAccepted(index,text);
+      setState((){
+        listening=false;
+        answer.text=text.trim();
+        taskPassed=accepted;
+        feedback=accepted
+            ? tx('Отлично!','Great!','Жақсы!')
+            : tx('Я услышал: «$text». Попробуй ещё раз.','I heard: “$text”. Try again.','Мен: «$text» деп естідім. Қайта айтып көр.');
+      });
+      return;
+    }
+
+    final normalized=_normalize(text);
+    final expected=_normalize(target);
+    final hit=normalized==expected || expected.split(' ').where((w)=>w.length>2).every(normalized.contains);
+
+    setState((){
+      listening=false;
+      taskPassed=hit;
+      feedback=hit
+          ? tx('Отлично!','Great pronunciation!','Жақсы айттың!')
+          : tx('Я услышал: «$text». Попробуй ещё раз.','I heard: “$text”. Try again.','Мен: «$text» деп естідім. Қайта айтып көр.');
+    });
   }
 
   Future<void> _finish() async{
