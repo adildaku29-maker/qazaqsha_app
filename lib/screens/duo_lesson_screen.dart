@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/app_models.dart';
 import '../services/storage_service.dart';
 import '../services/speech_service.dart';
@@ -22,6 +21,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   int correct = 0;
   bool answered = false;
   bool listening = false;
+  bool processing = false;
   String transcript = '';
   String? selected;
 
@@ -32,6 +32,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   @override
   void dispose() {
     speech.cancel();
+    speech.dispose();
     typing.dispose();
     super.dispose();
   }
@@ -75,23 +76,78 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   }
 
   Future<void> startListening() async {
+    if (processing) return;
+
     if (listening) {
-      await speech.stop();
-      setState(() => listening = false);
+      setState(() {
+        listening = false;
+        processing = true;
+      });
+
+      try {
+        final text = await speech.stop();
+
+        if (!mounted) return;
+
+        setState(() {
+          processing = false;
+          transcript = text ?? '';
+        });
+
+        if (transcript.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Не удалось распознать речь. Попробуй ещё раз.'),
+            ),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+
+        setState(() {
+          listening = false;
+          processing = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка распознавания: $e'),
+          ),
+        );
+      }
+
       return;
     }
-    setState(() { listening = true; transcript = ''; });
-    final ok = await speech.listen(onResult: (SpeechRecognitionResult result) {
-      if (!mounted) return;
-      setState(() {
-        transcript = result.recognizedWords;
-        if (result.finalResult) listening = false;
-      });
+
+    setState(() {
+      listening = true;
+      transcript = '';
+      processing = false;
     });
-    if (!ok && mounted) {
+
+    try {
+      final ok = await speech.listen();
+
+      if (!ok && mounted) {
+        setState(() => listening = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Не удалось получить доступ к микрофону. Разреши доступ к микрофону в настройках телефона.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
       setState(() => listening = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Распознавание речи недоступно. Проверь разрешение микрофона и наличие казахского языка на телефоне.')),
+        SnackBar(
+          content: Text('Ошибка запуска микрофона: $e'),
+        ),
       );
     }
   }
@@ -198,9 +254,9 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   Widget _speechHeader() { final target = vocabulary[q]; return Column(children: [const Text('Говори по-казахски', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800), textAlign: TextAlign.center), const SizedBox(height: 10), const Text('Произнеси слово вслух. Не бойся ошибиться — можно попробовать ещё раз.', style: TextStyle(color: Colors.grey, fontSize: 16), textAlign: TextAlign.center), const SizedBox(height: 28), Text(target.value, style: const TextStyle(fontSize: 18, color: Colors.grey)), const SizedBox(height: 8), Text(target.key, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w900))]); }
 
   Widget _speechBody() => Column(children: [
-    GestureDetector(onTap: answered ? null : startListening, child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 130, height: 130, decoration: BoxDecoration(shape: BoxShape.circle, color: listening ? Colors.red.withOpacity(.12) : AppTheme.primary.withOpacity(.10), border: Border.all(color: listening ? Colors.red : AppTheme.primary, width: 3)), child: Icon(listening ? Icons.stop : Icons.mic, size: 58, color: listening ? Colors.red : AppTheme.primary))),
+    GestureDetector(onTap: answered || processing ? null : startListening, child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 130, height: 130, decoration: BoxDecoration(shape: BoxShape.circle, color: listening ? Colors.red.withOpacity(.12) : AppTheme.primary.withOpacity(.10), border: Border.all(color: listening ? Colors.red : AppTheme.primary, width: 3)), child: processing ? const SizedBox(width: 42, height: 42, child: CircularProgressIndicator(strokeWidth: 4)) : Icon(listening ? Icons.stop : Icons.mic, size: 58, color: listening ? Colors.red : AppTheme.primary))),
     const SizedBox(height: 18),
-    Text(listening ? 'Слушаю… говори сейчас' : answered ? 'Распознавание завершено' : 'Нажми на микрофон и произнеси слово', style: const TextStyle(fontWeight: FontWeight.w600)),
+    Text(processing ? 'Распознаю речь…' : listening ? 'Слушаю… говори сейчас' : answered ? 'Распознавание завершено' : 'Нажми на микрофон и произнеси слово', style: const TextStyle(fontWeight: FontWeight.w600)),
     const SizedBox(height: 20),
     if (transcript.isNotEmpty) Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(children: [const Text('Я услышал:', style: TextStyle(color: Colors.grey)), const SizedBox(height: 6), Text(transcript, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))]))),
     const SizedBox(height: 14),
