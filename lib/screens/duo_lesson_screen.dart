@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import '../models/app_models.dart';
 import '../services/storage_service.dart';
 import '../services/speech_service.dart';
@@ -24,9 +23,10 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   bool answered = false;
   bool listening = false;
   String transcript = '';
-  StreamSubscription<Amplitude>? _amplitudeSubscription;
-  Timer? _silenceTimer;
+  Timer? _amplitudeTimer;
   DateTime? _recordingStartedAt;
+  DateTime? _lastSpeechAt;
+  bool _checkingAmplitude = false;
   String? selected;
 
   Question get question => widget.lesson.questions[q];
@@ -35,8 +35,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
 
   @override
   void dispose() {
-    _silenceTimer?.cancel();
-    _amplitudeSubscription?.cancel();
+    _amplitudeTimer?.cancel();
     speech.cancel();
     typing.dispose();
     super.dispose();
@@ -92,8 +91,9 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
     });
 
     _recordingStartedAt = DateTime.now();
-    _silenceTimer?.cancel();
-    await _amplitudeSubscription?.cancel();
+    _lastSpeechAt = DateTime.now();
+    _amplitudeTimer?.cancel();
+    _checkingAmplitude = false;
 
     final ok = await speech.listen();
     if (!ok) {
@@ -101,28 +101,46 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
       return;
     }
 
-    // The recorder stays active while the user speaks. After a short
-    // initial grace period, sustained silence automatically ends recording.
-    _amplitudeSubscription = speech.recorderAmplitudeStream(
-      interval: const Duration(milliseconds: 150),
-    ).listen((amplitude) {
-      final started = _recordingStartedAt;
-      if (started == null) return;
+    _amplitudeTimer = Timer.periodic(
+      const Duration(milliseconds: 150),
+      (_) async {
+        if (!listening || _checkingAmplitude) return;
 
-      final elapsed = DateTime.now().difference(started);
-      if (elapsed < const Duration(milliseconds: 700)) return;
+        _checkingAmplitude = true;
+        try {
+          final amplitude = await speech.getRecorderAmplitude();
 
-      final isSilent = amplitude.current < -42.0;
-      if (isSilent) {
-        _silenceTimer ??= Timer(const Duration(milliseconds: 900), () {
-          _silenceTimer = null;
-          _stopListeningAndTranscribe();
-        });
-      } else {
-        _silenceTimer?.cancel();
-        _silenceTimer = null;
-      }
-    });
+          final started = _recordingStartedAt;
+          if (started == null || !listening) return;
+
+          final elapsed = DateTime.now().difference(started);
+
+          // Даём пользователю 700 мс на начало речи.
+          if (elapsed < const Duration(milliseconds: 700)) {
+            return;
+          }
+
+          final isSpeaking = amplitude > -42.0;
+
+          if (isSpeaking) {
+            _lastSpeechAt = DateTime.now();
+          } else {
+            final lastSpeech = _lastSpeechAt ?? started;
+            final silenceDuration =
+                DateTime.now().difference(lastSpeech);
+
+            // 1 секунда тишины после последнего звука.
+            if (silenceDuration >= const Duration(milliseconds: 1000)) {
+              await _stopListeningAndTranscribe();
+            }
+          }
+        } catch (e) {
+          print('[QAZAQSHA][MIC] amplitude error: $e');
+        } finally {
+          _checkingAmplitude = false;
+        }
+      },
+    );
 
     if (mounted) {
       setState(() {});
@@ -130,11 +148,10 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   }
 
   Future<void> _stopListeningAndTranscribe() async {
-    _silenceTimer?.cancel();
-    _silenceTimer = null;
-    await _amplitudeSubscription?.cancel();
-    _amplitudeSubscription = null;
+    _amplitudeTimer?.cancel();
+    _amplitudeTimer = null;
     _recordingStartedAt = null;
+    _lastSpeechAt = null;
 
     if (!listening) return;
 
