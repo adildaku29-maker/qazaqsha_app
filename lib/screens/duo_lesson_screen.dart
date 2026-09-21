@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -23,6 +24,9 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   bool answered = false;
   bool listening = false;
   String transcript = '';
+  StreamSubscription<Amplitude>? _amplitudeSubscription;
+  Timer? _silenceTimer;
+  DateTime? _recordingStartedAt;
   String? selected;
 
   Question get question => widget.lesson.questions[q];
@@ -31,6 +35,8 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
 
   @override
   void dispose() {
+    _silenceTimer?.cancel();
+    _amplitudeSubscription?.cancel();
     speech.cancel();
     typing.dispose();
     super.dispose();
@@ -76,22 +82,82 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
 
   Future<void> startListening() async {
     if (listening) {
-      await speech.stop();
-      setState(() => listening = false);
+      await _stopListeningAndTranscribe();
       return;
     }
-    setState(() { listening = true; transcript = ''; });
-    final ok = await speech.listen(onResult: (SpeechRecognitionResult result) {
-      if (!mounted) return;
-      setState(() {
-        transcript = result.recognizedWords;
-        if (result.finalResult) listening = false;
-      });
+
+    setState(() {
+      listening = true;
+      transcript = '';
     });
-    if (!ok && mounted) {
+
+    _recordingStartedAt = DateTime.now();
+    _silenceTimer?.cancel();
+    await _amplitudeSubscription?.cancel();
+
+    final ok = await speech.listen();
+    if (!ok) {
+      if (mounted) setState(() => listening = false);
+      return;
+    }
+
+    // The recorder stays active while the user speaks. After a short
+    // initial grace period, sustained silence automatically ends recording.
+    _amplitudeSubscription = speech.recorderAmplitudeStream(
+      interval: const Duration(milliseconds: 150),
+    ).listen((amplitude) {
+      final started = _recordingStartedAt;
+      if (started == null) return;
+
+      final elapsed = DateTime.now().difference(started);
+      if (elapsed < const Duration(milliseconds: 700)) return;
+
+      final isSilent = amplitude.current < -42.0;
+      if (isSilent) {
+        _silenceTimer ??= Timer(const Duration(milliseconds: 900), () {
+          _silenceTimer = null;
+          _stopListeningAndTranscribe();
+        });
+      } else {
+        _silenceTimer?.cancel();
+        _silenceTimer = null;
+      }
+    });
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _stopListeningAndTranscribe() async {
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
+    await _amplitudeSubscription?.cancel();
+    _amplitudeSubscription = null;
+    _recordingStartedAt = null;
+
+    if (!listening) return;
+
+    if (mounted) {
+      setState(() => listening = false);
+    }
+
+    try {
+      final text = await speech.stop();
+      if (!mounted) return;
+
+      setState(() {
+        transcript = text?.trim() ?? '';
+      });
+
+      if (transcript.trim().isNotEmpty) {
+        checkSpeech();
+      }
+    } catch (e) {
+      if (!mounted) return;
       setState(() => listening = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Распознавание речи недоступно. Проверь разрешение микрофона и наличие казахского языка на телефоне.')),
+        SnackBar(content: Text('Ошибка распознавания: $e')),
       );
     }
   }
