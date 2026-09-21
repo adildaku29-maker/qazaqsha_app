@@ -89,23 +89,21 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
       return;
     }
 
-    setState(() { listening = true; transcript = ''; });
+    setState(() {
+      listening = true;
+      transcript = '';
+    });
+
     _stopping = false;
     _checkingAmplitude = false;
     _recordingStartedAt = DateTime.now();
-    _lastSpeechAt = null;
-
-    final ok = await speech.listen();
-    if (!ok) {
-      _recordingStartedAt = null;
-      if (mounted) setState(() => listening = false);
-      return;
-    }
-
-    _recordingStartedAt = DateTime.now();
     _lastSpeechAt = _recordingStartedAt;
-    print('[QAZAQSHA][MIC] auto-stop monitor started');
 
+    print('[QAZAQSHA][MIC] starting auto-stop monitor BEFORE recorder await');
+
+    // Не ждём завершения speech.listen() для запуска таймеров.
+    // Android record plugin может задерживать возврат Future даже после
+    // фактического старта native recorder.
     _maxRecordingTimer?.cancel();
     _maxRecordingTimer = Timer(const Duration(seconds: 7), () {
       if (listening && !_stopping) {
@@ -115,39 +113,69 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
     });
 
     _amplitudeTimer?.cancel();
-    _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 150), (_) async {
-      if (!listening || _stopping || _checkingAmplitude) return;
-      _checkingAmplitude = true;
-      try {
-        final amplitude = await speech.getRecorderAmplitude();
-        if (!listening || _stopping) return;
+    _amplitudeTimer = Timer.periodic(
+      const Duration(milliseconds: 150),
+      (_) async {
+        if (!listening || _stopping || _checkingAmplitude) return;
 
-        final now = DateTime.now();
-        final started = _recordingStartedAt;
-        if (started == null) return;
-        final elapsed = now.difference(started);
-        if (elapsed < const Duration(milliseconds: 700)) return;
+        _checkingAmplitude = true;
+        try {
+          final amplitude = await speech.getRecorderAmplitude();
 
-        if (amplitude > -42.0) {
-          _lastSpeechAt = now;
-          print('[QAZAQSHA][MIC] amplitude=$amplitude speaking=true');
-        } else {
-          final lastSpeech = _lastSpeechAt ?? started;
-          final silenceDuration = now.difference(lastSpeech);
-          if (silenceDuration >= const Duration(milliseconds: 900)) {
-            print('[QAZAQSHA][MIC] auto-stop: silence amplitude=$amplitude silence='
-                + silenceDuration.inMilliseconds.toString() + 'ms');
-            await _stopListeningAndTranscribe(reason: 'silence');
+          if (!listening || _stopping) return;
+
+          final now = DateTime.now();
+          final started = _recordingStartedAt;
+          if (started == null) return;
+
+          final elapsed = now.difference(started);
+          if (elapsed < const Duration(milliseconds: 700)) return;
+
+          if (amplitude > -42.0) {
+            _lastSpeechAt = now;
+            print('[QAZAQSHA][MIC] amplitude=$amplitude speaking=true');
+          } else {
+            final lastSpeech = _lastSpeechAt ?? started;
+            final silenceDuration = now.difference(lastSpeech);
+
+            if (silenceDuration >= const Duration(milliseconds: 900)) {
+              print('[QAZAQSHA][MIC] auto-stop: silence amplitude='
+                  + amplitude.toString()
+                  + ' silence='
+                  + silenceDuration.inMilliseconds.toString()
+                  + 'ms');
+              await _stopListeningAndTranscribe(reason: 'silence');
+            }
           }
+        } catch (e) {
+          print('[QAZAQSHA][MIC] amplitude error: $e');
+        } finally {
+          _checkingAmplitude = false;
         }
-      } catch (e) {
-        print('[QAZAQSHA][MIC] amplitude error: $e');
-      } finally {
-        _checkingAmplitude = false;
-      }
-    });
+      },
+    );
 
-    if (mounted) setState(() {});
+    try {
+      final ok = await speech.listen();
+      print('[QAZAQSHA][MIC] listen() returned ok=$ok');
+
+      if (!ok) {
+        _amplitudeTimer?.cancel();
+        _amplitudeTimer = null;
+        _maxRecordingTimer?.cancel();
+        _maxRecordingTimer = null;
+        _recordingStartedAt = null;
+
+        if (mounted) setState(() => listening = false);
+        return;
+      }
+
+      print('[QAZAQSHA][MIC] auto-stop monitor active');
+    } catch (e) {
+      print('[QAZAQSHA][MIC] listen() ERROR: $e');
+      if (mounted) setState(() => listening = false);
+      await _stopListeningAndTranscribe(reason: 'start-error');
+    }
   }
 
   Future<void> _stopListeningAndTranscribe({String reason = 'manual'}) async {
@@ -163,6 +191,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
 
     _stopping = true;
     print('[QAZAQSHA][MIC] STOP reason=$reason');
+
     _amplitudeTimer?.cancel();
     _amplitudeTimer = null;
     _maxRecordingTimer?.cancel();
@@ -173,16 +202,24 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
     try {
       final text = await speech.stop();
       print('[QAZAQSHA][MIC] STOP completed text=$text');
+
       if (!mounted) return;
+
       setState(() {
         listening = false;
         transcript = text?.trim() ?? '';
       });
-      if (transcript.trim().isNotEmpty) checkSpeech();
+
+      if (transcript.trim().isNotEmpty) {
+        checkSpeech();
+      }
     } catch (e) {
       print('[QAZAQSHA][MIC] STOP ERROR: $e');
+
       if (!mounted) return;
+
       setState(() => listening = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка распознавания: $e')),
       );
