@@ -3,7 +3,6 @@ import '../theme/app_theme.dart';
 import '../services/speech_service.dart';
 import 'lesson_screen.dart';
 import '../widgets/aisha_hero.dart';
-import 'dart:io';
 import 'package:flutter/services.dart';
 
 class OnboardingScreen extends StatefulWidget {
