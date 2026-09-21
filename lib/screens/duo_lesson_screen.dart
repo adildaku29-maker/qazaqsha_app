@@ -21,6 +21,7 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   int correct = 0;
   bool answered = false;
   bool listening = false;
+  bool starting = false;
   bool processing = false;
   String transcript = '';
   String? selected;
@@ -76,9 +77,10 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   }
 
   Future<void> startListening() async {
-    if (processing) return;
+    if (processing || starting || answered) return;
 
     if (listening) {
+      debugPrint('[QAZAQSHA][UI] STOP tap received');
       setState(() {
         listening = false;
         processing = true;
@@ -101,7 +103,10 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
             ),
           );
         }
-      } catch (e) {
+      } catch (e, stack) {
+        debugPrint('[QAZAQSHA][UI] STOP ERROR: $e');
+        debugPrint('$stack');
+
         if (!mounted) return;
 
         setState(() {
@@ -115,21 +120,36 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
           ),
         );
       }
-
       return;
     }
 
     setState(() {
-      listening = true;
+      starting = true;
+      listening = false;
       transcript = '';
       processing = false;
     });
 
+    debugPrint('[QAZAQSHA][UI] START tap received');
+
     try {
       final ok = await speech.listen();
 
-      if (!ok && mounted) {
-        setState(() => listening = false);
+      if (!mounted) return;
+
+      if (ok) {
+        setState(() {
+          starting = false;
+          listening = true;
+          processing = false;
+        });
+        debugPrint('[QAZAQSHA][UI] RECORDING STATE = TRUE');
+      } else {
+        setState(() {
+          starting = false;
+          listening = false;
+          processing = false;
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -139,10 +159,17 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
           ),
         );
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[QAZAQSHA][UI] START ERROR: $e');
+      debugPrint('$stack');
+
       if (!mounted) return;
 
-      setState(() => listening = false);
+      setState(() {
+        starting = false;
+        listening = false;
+        processing = false;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -254,9 +281,51 @@ class _DuoLessonScreenState extends State<DuoLessonScreen> {
   Widget _speechHeader() { final target = vocabulary[q]; return Column(children: [const Text('Говори по-казахски', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800), textAlign: TextAlign.center), const SizedBox(height: 10), const Text('Произнеси слово вслух. Не бойся ошибиться — можно попробовать ещё раз.', style: TextStyle(color: Colors.grey, fontSize: 16), textAlign: TextAlign.center), const SizedBox(height: 28), Text(target.value, style: const TextStyle(fontSize: 18, color: Colors.grey)), const SizedBox(height: 8), Text(target.key, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w900))]); }
 
   Widget _speechBody() => Column(children: [
-    GestureDetector(onTap: answered || processing ? null : startListening, child: AnimatedContainer(duration: const Duration(milliseconds: 200), width: 130, height: 130, decoration: BoxDecoration(shape: BoxShape.circle, color: listening ? Colors.red.withOpacity(.12) : AppTheme.primary.withOpacity(.10), border: Border.all(color: listening ? Colors.red : AppTheme.primary, width: 3)), child: processing ? const SizedBox(width: 42, height: 42, child: CircularProgressIndicator(strokeWidth: 4)) : Icon(listening ? Icons.stop : Icons.mic, size: 58, color: listening ? Colors.red : AppTheme.primary))),
+    GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: (answered || processing || starting) ? null : () {
+        debugPrint('[QAZAQSHA][UI] MIC BUTTON TAPPED');
+        startListening();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 130,
+        height: 130,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: listening ? Colors.red.withOpacity(.12) : AppTheme.primary.withOpacity(.10),
+          border: Border.all(
+            color: listening ? Colors.red : AppTheme.primary,
+            width: 3,
+          ),
+        ),
+        child: (starting || processing)
+            ? const SizedBox(
+                width: 42,
+                height: 42,
+                child: CircularProgressIndicator(strokeWidth: 4),
+              )
+            : Icon(
+                listening ? Icons.stop : Icons.mic,
+                size: 58,
+                color: listening ? Colors.red : AppTheme.primary,
+              ),
+      ),
+    ),
     const SizedBox(height: 18),
-    Text(processing ? 'Распознаю речь…' : listening ? 'Слушаю… говори сейчас' : answered ? 'Распознавание завершено' : 'Нажми на микрофон и произнеси слово', style: const TextStyle(fontWeight: FontWeight.w600)),
+    Text(
+      starting
+          ? 'Запускаю микрофон…'
+          : processing
+              ? 'Распознаю речь…'
+              : listening
+                  ? 'Слушаю… говори сейчас'
+                  : answered
+                      ? 'Распознавание завершено'
+                      : 'Нажми на микрофон и произнеси слово',
+      style: const TextStyle(fontWeight: FontWeight.w600),
+      textAlign: TextAlign.center,
+    ),
     const SizedBox(height: 20),
     if (transcript.isNotEmpty) Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(children: [const Text('Я услышал:', style: TextStyle(color: Colors.grey)), const SizedBox(height: 6), Text(transcript, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))]))),
     const SizedBox(height: 14),
