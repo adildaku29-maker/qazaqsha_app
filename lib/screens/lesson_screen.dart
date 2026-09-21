@@ -24,7 +24,12 @@ class _LessonScreenState extends State<LessonScreen>{
   bool listening=false,done=false,taskPassed=false;
   String feedback='';
   Timer? _maxRecordingTimer;
+  Timer? _amplitudeTimer;
   bool _stoppingRecording=false;
+  bool _recognizing=false;
+  DateTime? _recordingStartedAt;
+  DateTime? _lastSpeechAt;
+  bool _checkingAmplitude=false;
 
   String get lang=>profile?.language??'ru';
   String tx(String ru,String en,String kk)=>lang=='en'?en:lang=='kk'?kk:ru;
@@ -33,6 +38,7 @@ class _LessonScreenState extends State<LessonScreen>{
   Future<void> _load() async{final p=await UserProfileService().profile;profile=p;await speech.init();if(mounted)setState((){});}
   @override void dispose(){
     _maxRecordingTimer?.cancel();
+    _amplitudeTimer?.cancel();
     speech.cancel();
     answer.dispose();
     speech.dispose();
@@ -95,22 +101,8 @@ class _LessonScreenState extends State<LessonScreen>{
 
   Future<void> _listen({required String target}) async{
     if(listening){
-      if(_stoppingRecording)return;
-      _stoppingRecording=true;
-      _maxRecordingTimer?.cancel();
-      try{
-        final text=await speech.stop();
-        if(mounted && text!=null && text.trim().isNotEmpty){
-          _handleRecognizedText(text,target);
-        }
-      }catch(e){
-        if(mounted)setState(()=>feedback=tx('Ошибка распознавания: $e','Recognition error: $e','Тану қатесі: $e'));
-      }finally{
-        _stoppingRecording=false;
-        if(mounted && speech.isListening==false && !taskPassed){
-          setState(()=>listening=false);
-        }
-      }
+      if(_stoppingRecording || _recognizing)return;
+      await _stopLessonRecording(target);
       return;
     }
 
@@ -120,21 +112,62 @@ class _LessonScreenState extends State<LessonScreen>{
     if(mounted){
       setState((){
         listening=true;
+        _recognizing=false;
         feedback='';
       });
     }
 
     _stoppingRecording=false;
+    _recordingStartedAt=DateTime.now();
+    _lastSpeechAt=_recordingStartedAt;
+
     _maxRecordingTimer?.cancel();
+    _amplitudeTimer?.cancel();
+
     print('[QAZAQSHA][MIC] lesson auto-stop monitor started');
 
-    // Start the safety timeout BEFORE awaiting speech.listen().
-    // This screen can otherwise wait indefinitely for the record plugin
-    // Future even though the native recorder is already active.
-    _maxRecordingTimer=Timer(const Duration(seconds:7),(){
-      if(!mounted || !listening || _stoppingRecording)return;
-      print('[QAZAQSHA][MIC] lesson auto-stop: hard timeout 7s');
+    // Safety limit: normal speech stops earlier on silence.
+    _maxRecordingTimer=Timer(const Duration(seconds:15),(){
+      if(!mounted || !listening || _stoppingRecording || _recognizing)return;
+      print('[QAZAQSHA][MIC] lesson auto-stop: hard timeout 15s');
       _stopLessonRecording(target);
+    });
+
+    _amplitudeTimer=Timer.periodic(const Duration(milliseconds:150),(_) async{
+      if(!mounted || !listening || _stoppingRecording || _recognizing || _checkingAmplitude)return;
+
+      _checkingAmplitude=true;
+      try{
+        final amplitude=await speech.getRecorderAmplitude();
+        if(!mounted || !listening || _stoppingRecording || _recognizing)return;
+
+        final started=_recordingStartedAt;
+        if(started==null)return;
+
+        final now=DateTime.now();
+        final elapsed=now.difference(started);
+
+        // Give the recorder a moment to stabilize before checking silence.
+        if(elapsed<const Duration(milliseconds:700))return;
+
+        if(amplitude>-42.0){
+          _lastSpeechAt=now;
+          print('[QAZAQSHA][MIC] amplitude=$amplitude speaking=true');
+        }else{
+          final lastSpeech=_lastSpeechAt??started;
+          final silence=now.difference(lastSpeech);
+
+          if(silence>=const Duration(milliseconds:900)){
+            print('[QAZAQSHA][MIC] auto-stop: silence amplitude=$amplitude '
+                'silence=${silence.inMilliseconds}ms');
+            await _stopLessonRecording(target);
+          }
+        }
+      }catch(e){
+        print('[QAZAQSHA][MIC] amplitude error: $e');
+      }finally{
+        _checkingAmplitude=false;
+      }
     });
 
     try{
@@ -142,12 +175,16 @@ class _LessonScreenState extends State<LessonScreen>{
         if(text.trim().isEmpty)return;
         _maxRecordingTimer?.cancel();
         _maxRecordingTimer=null;
+        _amplitudeTimer?.cancel();
+        _amplitudeTimer=null;
         _handleRecognizedText(text,target);
       });
       print('[QAZAQSHA][MIC] lesson listen() returned');
     }catch(e){
       _maxRecordingTimer?.cancel();
       _maxRecordingTimer=null;
+      _amplitudeTimer?.cancel();
+      _amplitudeTimer=null;
       if(mounted){
         setState((){
           listening=false;
@@ -158,22 +195,38 @@ class _LessonScreenState extends State<LessonScreen>{
   }
 
   Future<void> _stopLessonRecording(String target) async{
-    if(_stoppingRecording)return;
+    if(_stoppingRecording || _recognizing)return;
+
     _stoppingRecording=true;
     _maxRecordingTimer?.cancel();
     _maxRecordingTimer=null;
+    _amplitudeTimer?.cancel();
+    _amplitudeTimer=null;
+    _recordingStartedAt=null;
+    _lastSpeechAt=null;
+
+    if(mounted){
+      setState(()=>_recognizing=true);
+    }
+
+    print('[QAZAQSHA][MIC] STOP recording; waiting for Whisper');
 
     try{
       final text=await speech.stop();
       if(text!=null && text.trim().isNotEmpty){
         _handleRecognizedText(text,target);
       }else if(mounted){
-        setState(()=>listening=false);
+        setState((){
+          listening=false;
+          _recognizing=false;
+          feedback=tx('Речь не распознана. Попробуй ещё раз.','Speech not recognized. Try again.','Сөз танылмады. Қайта айтып көр.');
+        });
       }
     }catch(e){
       if(mounted){
         setState((){
           listening=false;
+          _recognizing=false;
           feedback=tx('Ошибка распознавания: $e','Recognition error: $e','Тану қатесі: $e');
         });
       }
@@ -189,6 +242,7 @@ class _LessonScreenState extends State<LessonScreen>{
       final accepted=_dialogueAccepted(index,text);
       setState((){
         listening=false;
+        _recognizing=false;
         answer.text=text.trim();
         taskPassed=accepted;
         feedback=accepted
@@ -204,6 +258,7 @@ class _LessonScreenState extends State<LessonScreen>{
 
     setState((){
       listening=false;
+      _recognizing=false;
       taskPassed=hit;
       feedback=hit
           ? tx('Отлично!','Great pronunciation!','Жақсы айттың!')
