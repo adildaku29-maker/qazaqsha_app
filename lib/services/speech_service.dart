@@ -9,7 +9,10 @@ class SpeechService {
   final AudioRecorder _recorder = AudioRecorder();
   bool _isListening = false;
 
-  static const String serverUrl = 'http://127.0.0.1:8000';
+  static const String serverUrl = String.fromEnvironment(
+    'ASR_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
   bool get isListening => _isListening;
 
@@ -24,19 +27,23 @@ class SpeechService {
     if (!hasPermission) return false;
 
     final directory = await getTemporaryDirectory();
-    final path = '${directory.path}/qazaqsha_recording.wav';
+    final path = '${directory.path}/qazaqsha_recording_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-    await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.wav,
-        sampleRate: 16000,
-        numChannels: 1,
-      ),
-      path: path,
-    );
-
-    _isListening = true;
-    return true;
+    try {
+      await _recorder.start(
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
+        path: path,
+      );
+      _isListening = true;
+      return true;
+    } catch (_) {
+      _isListening = false;
+      rethrow;
+    }
   }
 
   Future<String?> stop() async {
