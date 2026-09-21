@@ -19,6 +19,10 @@ class SpeechService {
 
   bool get isListening => _isListening;
 
+  Stream<Amplitude> recorderAmplitudeStream({Duration interval = const Duration(milliseconds: 200)}) {
+    return _recorder.onAmplitudeChanged(interval);
+  }
+
   Future<bool> init() => initialize();
 
   Future<bool> initialize() async {
