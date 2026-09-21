@@ -6,6 +6,7 @@ import '../data/lesson_content.dart';
 import '../services/speech_service.dart';
 import '../services/storage_service.dart';
 import '../services/user_profile_service.dart';
+import 'streak_screen.dart';
 
 class LessonScreen extends StatefulWidget{
   final String topic,level;
@@ -558,8 +559,16 @@ class _LessonScreenState extends State<LessonScreen>{
     const SizedBox(height:28),Text(tx('Ты прошёл обучение, 3 задания со словами, 3 предложения, 3 произношения и 3 диалога с Аишей.','You completed the training, 3 word tasks, 3 sentence tasks, 3 speaking tasks and 3 dialogues with Aisha.','Оқыту, 3 сөз тапсырмасы, 3 сөйлем, 3 айтылым және Айшамен 3 диалог аяқталды.'),textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted,height:1.4)),
             const SizedBox(height: 30),
             FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(tx('Вернуться к урокам', 'Back to lessons', 'Сабақтарға оралу')),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StreakScreen(
+                    language: lang,
+                    goal: profile?.goal ?? '',
+                  ),
+                ),
+              ),
+              child: Text(tx('Продолжить', 'Continue', 'Жалғастыру')),
             ),
           ],
         ),
