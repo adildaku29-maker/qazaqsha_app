@@ -19,58 +19,65 @@ class LessonPack{
   final List<LessonWord> words;
   final List<LessonSentence> sentences;
   final List<DialogueTurn> dialogue;
-  const LessonPack(this.topic,this.words,this.sentences,this.dialogue);
+  final LessonWord? reviewWord;
+  const LessonPack(this.topic,this.words,this.sentences,this.dialogue,{this.reviewWord});
 }
 
-final Map<String,LessonPack> lessonPacks={
-  'Танысу':LessonPack('Танысу',[
-    LessonWord('сәлем','привет','hello'),
-    LessonWord('аты','имя','name'),
-    LessonWord('жас','возраст','age'),
-  ],[
-    LessonSentence('Менің атым Адиль.','Меня зовут Адиль.','My name is Adil.'),
-    LessonSentence('Мен Астанада тұрамын.','Я живу в Астане.','I live in Astana.'),
-    LessonSentence('Танысқаныма қуаныштымын.','Рад познакомиться.','Nice to meet you.'),
-  ],[
-    DialogueTurn('Сәлем! Қалың қалай?','Жақсы, рақмет!','Привет! Как дела?','Хорошо, спасибо!','Hi! How are you?','Good, thank you!'),
-    DialogueTurn('Атың кім?','Менің атым {name}.','Как тебя зовут?','Меня зовут {name}.','What is your name?','My name is {name}.'),
-    DialogueTurn('Қай қалада тұрасың?','Мен Астанада тұрамын.','В каком городе ты живёшь?','Я живу в Астане.','Which city do you live in?','I live in Astana.'),
-  ]),
-  'Отбасы':LessonPack('Отбасы',[
-    LessonWord('отбасы','семья','family'),LessonWord('ана','мама','mother'),LessonWord('әке','папа','father'),
-  ],[
-    LessonSentence('Бұл менің отбасым.','Это моя семья.','This is my family.'),
-    LessonSentence('Бұл менің анам.','Это моя мама.','This is my mother.'),
-    LessonSentence('Менің әкем бар.','У меня есть папа.','I have a father.'),
-  ],[
-    DialogueTurn('Отбасың үлкен бе?','Иә, отбасым үлкен.','У тебя большая семья?','Да, у меня большая семья.','Is your family big?','Yes, my family is big.'),
-    DialogueTurn('Анаң бар ма?','Иә, анам бар.','У тебя есть мама?','Да, у меня есть мама.','Do you have a mother?','Yes, I do.'),
-    DialogueTurn('Әкең бар ма?','Иә, әкем бар.','У тебя есть папа?','Да, у меня есть папа.','Do you have a father?','Yes, I do.'),
-  ]),
-  'Үй':LessonPack('Үй',[
-    LessonWord('үй','дом','house'),LessonWord('бөлме','комната','room'),LessonWord('есік','дверь','door'),
-  ],[
-    LessonSentence('Бұл менің үйім.','Это мой дом.','This is my house.'),
-    LessonSentence('Менің бөлмем үлкен.','Моя комната большая.','My room is big.'),
-    LessonSentence('Есік ашық.','Дверь открыта.','The door is open.'),
-  ],[
-    DialogueTurn('Үйің қандай?','Менің үйім үлкен.','Какой у тебя дом?','Мой дом большой.','What is your house like?','My house is big.'),
-    DialogueTurn('Бөлмең бар ма?','Иә, бөлмем бар.','У тебя есть комната?','Да, у меня есть комната.','Do you have a room?','Yes, I do.'),
-    DialogueTurn('Есік ашық па?','Иә, есік ашық.','Дверь открыта?','Да, дверь открыта.','Is the door open?','Yes, the door is open.'),
-  ]),
-};
-LessonPack lessonFor(String topic){
-  final p=lessonPacks[topic];
-  if(p!=null)return p;
-  return LessonPack(topic,[
-    LessonWord(topic,topic,topic),LessonWord('сөз','слово','word'),LessonWord('жақсы','хорошо','good'),
-  ],[
-    LessonSentence('Мен қазақша үйреніп жатырмын.','Я учу казахский.','I am learning Kazakh.'),
-    LessonSentence('Бұл қызықты тақырып.','Это интересная тема.','This is an interesting topic.'),
-    LessonSentence('Мен тағы қайталаймын.','Я повторю ещё раз.','I will repeat it again.'),
-  ],[
-    DialogueTurn('Бұл тақырып ұнай ма?','Иә, маған ұнайды.','Тебе нравится эта тема?','Да, мне нравится.','Do you like this topic?','Yes, I like it.'),
-    DialogueTurn('Қазақша сөйлей аласың ба?','Аздап сөйлей аламын.','Ты умеешь говорить по-казахски?','Я немного говорю.','Can you speak Kazakh?','I can speak a little.'),
-    DialogueTurn('Қайта айтайық па?','Иә, қайта айтайық.','Повторим?','Да, давай повторим.','Shall we repeat?','Yes, let’s repeat.'),
-  ]);
+class Topic{
+  final String title,subtitle,emoji,level;final int xp;final List<String> words;
+  const Topic(this.title,this.subtitle,this.emoji,this.level,this.xp,this.words);
 }
+
+const topics=<Topic>[
+  Topic('Танысу','Өзіңді таныстыру','👋','A1',80,['сәлем','аты','жас','қала','танысу']),
+  Topic('Отбасы','Жақындарың туралы','👨‍👩‍👧','A1',90,['отбасы','ана','әке','аға','әпке']),
+  Topic('Үй','Үйің және бөлмелер','🏠','A1',90,['үй','бөлме','асүй','есік','терезе']),
+  Topic('Тамақ','Тағам және сусындар','🍲','A1',100,['тамақ','су','ет','нан','шай']),
+  Topic('Күнделікті өмір','Күн тәртібі','☀️','A1',100,['таңертең','жұмыс','күн','кеш','ұйқы']),
+  Topic('Дүкен','Сатып алу','🛍️','A2',120,['баға','ақша','сатып алу','арзан','қымбат']),
+  Topic('Мейрамхана','Мейрамханада сөйлесу','🍽️','A2',120,['мәзір','тапсырыс','есеп','дәмді','даяшы']),
+  Topic('Достар','Достық туралы','🤝','A2',120,['дос','кездесу','әңгіме','көңіл','бірге']),
+  Topic('Жұмыс','Жұмыс және мамандық','💼','A2',140,['жұмыс','әріптес','кеңсе','жоба','басшы']),
+  Topic('Саяхат','Саяхат және жол','✈️','B1',160,['саяхат','әуежай','қонақүй','билет','бағыт']),
+  Topic('Қазақстан','Ел туралы сөйлесу','🇰🇿','B1',180,['Қазақстан','Астана','дәстүр','мәдениет','тарих']),
+];
+
+const topicWords=<String,List<LessonWord>>{
+  'Танысу':[LessonWord('сәлем','привет','hello'),LessonWord('аты','имя','name'),LessonWord('жас','возраст','age'),LessonWord('қала','город','city'),LessonWord('танысу','знакомство','introduction')],
+  'Отбасы':[LessonWord('отбасы','семья','family'),LessonWord('ана','мама','mother'),LessonWord('әке','папа','father'),LessonWord('аға','старший брат','older brother'),LessonWord('әпке','старшая сестра','older sister')],
+  'Үй':[LessonWord('үй','дом','house'),LessonWord('бөлме','комната','room'),LessonWord('асүй','кухня','kitchen'),LessonWord('есік','дверь','door'),LessonWord('терезе','окно','window')],
+  'Тамақ':[LessonWord('тамақ','еда','food'),LessonWord('су','вода','water'),LessonWord('ет','мясо','meat'),LessonWord('нан','хлеб','bread'),LessonWord('шай','чай','tea')],
+  'Күнделікті өмір':[LessonWord('таңертең','утром','morning'),LessonWord('жұмыс','работа','work'),LessonWord('күн','день','day'),LessonWord('кеш','вечер','evening'),LessonWord('ұйқы','сон','sleep')],
+  'Дүкен':[LessonWord('баға','цена','price'),LessonWord('ақша','деньги','money'),LessonWord('сатып алу','покупать','buy'),LessonWord('арзан','дешёвый','cheap'),LessonWord('қымбат','дорогой','expensive')],
+  'Мейрамхана':[LessonWord('мәзір','меню','menu'),LessonWord('тапсырыс','заказ','order'),LessonWord('есеп','счёт','bill'),LessonWord('дәмді','вкусный','tasty'),LessonWord('даяшы','официант','waiter')],
+  'Достар':[LessonWord('дос','друг','friend'),LessonWord('кездесу','встреча','meeting'),LessonWord('әңгіме','разговор','conversation'),LessonWord('көңіл','настроение','mood'),LessonWord('бірге','вместе','together')],
+  'Жұмыс':[LessonWord('жұмыс','работа','work'),LessonWord('әріптес','коллега','colleague'),LessonWord('кеңсе','офис','office'),LessonWord('жоба','проект','project'),LessonWord('басшы','руководитель','manager')],
+  'Саяхат':[LessonWord('саяхат','путешествие','travel'),LessonWord('әуежай','аэропорт','airport'),LessonWord('қонақүй','отель','hotel'),LessonWord('билет','билет','ticket'),LessonWord('бағыт','направление','route')],
+  'Қазақстан':[LessonWord('Қазақстан','Казахстан','Kazakhstan'),LessonWord('Астана','Астана','Astana'),LessonWord('дәстүр','традиция','tradition'),LessonWord('мәдениет','культура','culture'),LessonWord('тарих','история','history')],
+};
+
+LessonPack lessonFor(String topic,{int lesson=1}){
+  final words=topicWords[topic] ?? const <LessonWord>[LessonWord('сөз','слово','word'),LessonWord('жақсы','хорошо','good'),LessonWord('тақырып','тема','topic')];
+  const patterns=[[0,1,2],[2,3,4],[0,3,4],[1,2,4]];
+  final chosen=patterns[(lesson-1)%4].map((i)=>words[i]).toList();
+  LessonWord? review;
+  final topicIndex=topics.indexWhere((t)=>t.title==topic);
+  if(topicIndex>0){
+    final previous=topicWords[topics[topicIndex-1].title]!;
+    review=previous[(lesson-1)%previous.length];
+  }
+  final a=chosen[0],b=chosen[1],c=chosen[2];
+  final s1=LessonSentence('Мен '+a.kk+' туралы үйреніп жатырмын.','Я изучаю тему «'+a.ru+'».','I am learning about '+a.en+'.');
+  final s2=LessonSentence('Маған '+b.kk+' ұнайды.','Мне нравится '+b.ru+'.','I like '+b.en+'.');
+  final s3=LessonSentence('Мен '+c.kk+' білемін.','Я знаю слово «'+c.ru+'».','I know '+c.en+'.');
+  return LessonPack(topic,chosen,[s1,s2,s3],[
+    DialogueTurn('Сен '+a.kk+' білесің бе?','Иә, мен '+a.kk+' білемін.','Ты знаешь '+a.ru+'?','Да, я знаю '+a.ru+'.','Do you know '+a.en+'?','Yes, I know '+a.en+'.'),
+    DialogueTurn('Саған '+b.kk+' ұнай ма?','Иә, маған '+b.kk+' ұнайды.','Тебе нравится '+b.ru+'?','Да, мне нравится '+b.ru+'.','Do you like '+b.en+'?','Yes, I like '+b.en+'.'),
+    DialogueTurn('Сен '+c.kk+' туралы білесің бе?','Иә, мен '+c.kk+' туралы білемін.','Ты знаешь о '+c.ru+'?','Да, я знаю о '+c.ru+'.','Do you know about '+c.en+'?','Yes, I know about '+c.en+'.'),
+  ],reviewWord:review);
+}
+
+const achievements=<Map<String,String>>[
+  {'🔥':'7 күн қатарынан'},{'⚡':'1000 XP жина'},{'📚':'100 сөз үйрен'},
+  {'🎙️':'Алғашқы дауыс жаттығуы'},{'💬':'Алғашқы диалог'},{'🇰🇿':'A1 деңгейін аяқ'}
+];
