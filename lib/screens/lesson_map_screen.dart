@@ -73,7 +73,7 @@ class _LessonMapScreenState extends State<LessonMapScreen>{
     final current=open&&!passed;
     final align=lesson.isOdd?Alignment.centerLeft:Alignment.centerRight;
     final title=tr('Урок '+lesson.toString(),'Lesson '+lesson.toString(),'Сабақ '+lesson.toString());
-    return Align(alignment:align,child:Padding(padding:const EdgeInsets.symmetric(vertical:5,horizontal:lesson.isOdd?4:24),child:InkWell(
+    return Align(alignment:align,child:Padding(padding:EdgeInsets.symmetric(vertical:5,horizontal:lesson.isOdd?4:24),child:InkWell(
       borderRadius:BorderRadius.circular(24),
       onTap:!open?null:()async{
         await Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:topic.title,level:topic.level,lessonNumber:lesson)));
