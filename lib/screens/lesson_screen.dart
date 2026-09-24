@@ -7,6 +7,7 @@ import '../services/speech_service.dart';
 import '../services/storage_service.dart';
 import '../services/user_profile_service.dart';
 import '../services/lesson_database.dart';
+import 'streak_screen.dart';
 
 class LessonScreen extends StatefulWidget {
   final String topic, level;
@@ -382,8 +383,15 @@ class _LessonScreenState extends State<LessonScreen> {
           :tx('Нужно минимум 60%. Пройди урок ещё раз.','You need at least 60%. Retry the lesson.','Кемінде 60% керек. Сабақты қайта өт.'),
           textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),
         const SizedBox(height:25),
-        FilledButton(onPressed:()=>Navigator.pop(context),
-          child:Text(tx('Вернуться к карте','Back to map','Картаға оралу'))),
+        FilledButton(onPressed:(){
+          if(passed && widget.topic=='Танысу' && widget.lessonNumber==1){
+            Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>StreakScreen(
+              language:lang,goal:profile?.goal??'',
+            )));
+          }else{
+            Navigator.pop(context);
+          }
+        },child:Text(tx('Продолжить','Continue','Жалғастыру'))),
       ])));
   }
 }
