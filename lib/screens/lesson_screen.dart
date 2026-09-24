@@ -51,6 +51,7 @@ class _LessonScreenState extends State<LessonScreen> {
   String norm(String s)=>s.toLowerCase().replaceAll('ё','е').replaceAll(RegExp(r'[.!?,;:—–-]'),' ').replaceAll(RegExp(r'\s+'),' ').trim();
 
   void advance(){
+    if(phase==5 && index==2){ finish(); return; }
     if(index<2){
       index++; feedback=''; answer.clear(); selected=[]; shuffled=[];
     }else{
@@ -157,7 +158,7 @@ class _LessonScreenState extends State<LessonScreen> {
     if(hit){
       correct++;
       setState((){listening=false;recognizing=false;feedback=tx('Отлично!','Great!','Керемет!');});
-      if(index==2)Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});
+      Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});
     }else{
       setState((){listening=false;recognizing=false;feedback=tx('Я услышал: ','I heard: ','Мен естідім: ')+text;});
     }
