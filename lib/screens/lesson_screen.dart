@@ -26,7 +26,7 @@ class _LessonScreenState extends State<LessonScreen>{
  final answer=TextEditingController();
 
  bool get isExam=>exam!=null;
- int get totalTasks=>isExam?15:10;
+ int get totalTasks=>isExam?15:12;
  List<TranslationQuestion> get translations=>isExam?exam!.translations:pack.translations;
  List<MatchPair> get pairs=>isExam?exam!.pairs:pack.pairs;
  List<FillQuestion> get fills=>isExam?exam!.fills:pack.fills;
@@ -59,8 +59,8 @@ class _LessonScreenState extends State<LessonScreen>{
    if(pairLeft==null)return;
    final p=pairs.firstWhere((x)=>x.kk==pairLeft);
    if(p.ru==ru){
-     pairDone.add(p.kk);pairLeft=null;
-     if(pairDone.length==pairs.length){correct++;feedback=tx('Отлично! Все пары найдены.','Excellent! All pairs matched.','Керемет! Барлық жұп табылды.');Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});}
+     pairDone.add(p.kk);pairLeft=null;correct++;
+     if(pairDone.length==pairs.length){feedback=tx('Отлично! Все пары найдены.','Excellent! All pairs matched.','Керемет! Барлық жұп табылды.');Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});}
      else setState(()=>feedback='');
    }else setState(()=>feedback=tx('Пока не совпало. Попробуй ещё.','Not a match yet. Try again.','Сәйкес емес. Қайта көр.'));
  }
