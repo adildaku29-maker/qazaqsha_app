@@ -21,7 +21,7 @@ class _LessonsScreenState extends State<LessonsScreen>{
   bool unlocked(int ti,int lesson){
     if(ti==0&&lesson==1)return true;
     if(lesson>1)return grade(topics[ti].title,lesson-1)>=3;
-    return grade(topics[ti-1].title,4)>=3;
+    return grade(topics[ti-1].title,lessonCountFor(topics[ti-1].title))>=3;
   }
   String tr(String ru,String en,String kk)=>widget.language=='en'?en:widget.language=='kk'?kk:ru;
 
@@ -56,7 +56,7 @@ class _LessonsScreenState extends State<LessonsScreen>{
             Text(topic.level,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w900)),
           ]),
           const SizedBox(height:8),
-          ...List.generate(4,(i)=>_lesson(ti,i+1)),
+          ...List.generate(lessonCountFor(topic.title),(i)=>_lesson(ti,i+1)),
         ]),
       ),
     );
@@ -72,14 +72,14 @@ class _LessonsScreenState extends State<LessonsScreen>{
         width:44,height:44,
         decoration:BoxDecoration(
           shape:BoxShape.circle,
-          color:g>=3?AppColors.teal:open?AppColors.teal.withValues(alpha:.13):AppColors.navy2,
+          color:n==5&&open&&g<3?AppColors.gold.withValues(alpha:.16):g>=3?AppColors.teal:open?AppColors.teal.withValues(alpha:.13):AppColors.navy2,
         ),
         child:Center(child:Icon(
-          g>=3?Icons.check_rounded:open?Icons.play_arrow_rounded:Icons.lock_rounded,
-          color:g>=3?Colors.white:open?AppColors.teal:AppColors.muted,
+          g>=3?Icons.check_rounded:n==5&&open?Icons.workspace_premium_rounded:open?Icons.play_arrow_rounded:Icons.lock_rounded,
+          color:g>=3?Colors.white:n==5&&open?AppColors.gold:open?AppColors.teal:AppColors.muted,
         )),
       ),
-      title:Text(tr('Урок $n','Lesson $n','Сабақ $n'),style:const TextStyle(fontWeight:FontWeight.w800)),
+      title:Text(n==5?tr('Экзамен','Exam','Емтихан'):tr('Урок $n','Lesson $n','Сабақ $n'),style:const TextStyle(fontWeight:FontWeight.w800)),
       subtitle:Text(g>0?tr('Оценка $g','Grade $g','Баға $g'):open?tr('Нет оценки','Not completed','Бағаланбаған'):tr('Заблокирован','Locked','Құлыптаулы'),
         style:const TextStyle(color:AppColors.muted)),
       trailing:g>0?Container(width:36,height:36,decoration:BoxDecoration(shape:BoxShape.circle,color:AppColors.gold.withValues(alpha:.14)),child:Center(child:Text('$g',style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w900)))):null,
