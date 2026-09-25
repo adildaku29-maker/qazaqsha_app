@@ -175,7 +175,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
         ),
         const SizedBox(height: 8),
 
-        // Four circular lessons connected by a single vertical path.
+        // Lesson stages connected by a single vertical path.
         ...List.generate(lessonCountFor(topic.title), (i) => _lessonNode(topicIndex, i + 1)),
 
         if (topicIndex < topics.length - 1)
@@ -200,142 +200,38 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
     final passed = g >= 3;
     final current = open && !passed;
     final exam = lesson == 5;
-
-    return Column(
-      children: [
-        SizedBox(
-          height: 92,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Connector behind the circles.
-              if (lesson < lessonCountFor(topic.title))
-                Positioned(
-                  top: 67,
-                  bottom: 0,
-                  child: Container(
-                    width: 5,
-                    decoration: BoxDecoration(
-                      color: passed
-                          ? AppColors.teal.withValues(alpha: .75)
-                          : AppColors.teal.withValues(alpha: .22),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-
-              // Small lesson number to the left.
-              Positioned(
-                left: 18,
-                child: Text(
-                  lesson.toString(),
-                  style: TextStyle(
-                    color: open ? AppColors.muted : AppColors.muted.withValues(alpha: .5),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-
-              // Main Duolingo-like circle.
-              GestureDetector(
-                onTap: !open
-                    ? null
-                    : () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => LessonScreen(
-                              topic: topic.title,
-                              level: topic.level,
-                              lessonNumber: lesson,
-                            ),
-                          ),
-                        );
-                        _load();
-                      },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: current ? 72 : 64,
-                  height: current ? 72 : 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: exam && open && !passed ? AppColors.gold.withValues(alpha:.16) : passed ? AppColors.teal : open ? AppColors.card : AppColors.navy2,
-                    border: Border.all(
-                      color: exam && open && !passed ? AppColors.gold : current ? AppColors.teal : passed
-                              ? AppColors.teal.withValues(alpha: .8)
-                              : AppColors.muted.withValues(alpha: .12),
-                      width: current ? 4 : 2,
-                    ),
-                    boxShadow: current
-                        ? [
-                            BoxShadow(
-                              color: AppColors.teal.withValues(alpha: .28),
-                              blurRadius: 18,
-                              spreadRadius: 2,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: passed
-                        ? const Icon(Icons.check_rounded,color: Colors.white,size: 32)
-                        : open
-                            ? (exam ? const Icon(Icons.workspace_premium_rounded,color: AppColors.gold,size: 32) : Text(
-                                lesson.toString(),
-                                style: const TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w900,
-                                ))
-                            : const Icon(
-                                Icons.lock_rounded,
-                                color: AppColors.muted,
-                                size: 25,
-                              ),
-                  ),
-                ),
-              ),
-
-              // Grade appears beside a completed circle.
-              if (g > 0)
-                Positioned(
-                  right: 22,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: AppColors.gold.withValues(alpha: .15),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.gold.withValues(alpha: .5),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        g.toString(),
-                        style: const TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+    return Column(children:[
+      SizedBox(height:92,child:Stack(alignment:Alignment.center,children:[
+        if(lesson < lessonCountFor(topic.title)) Positioned(top:67,bottom:0,child:Container(width:5,decoration:BoxDecoration(color:passed?AppColors.teal.withValues(alpha:.75):AppColors.teal.withValues(alpha:.22),borderRadius:BorderRadius.circular(10)))),
+        Positioned(left:18,child:Text('$lesson',style:TextStyle(color:open?AppColors.muted:AppColors.muted.withValues(alpha:.5),fontWeight:FontWeight.w800,fontSize:13))),
+        GestureDetector(
+          onTap:!open?null:()async{
+            await Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:topic.title,level:topic.level,lessonNumber:lesson)));
+            _load();
+          },
+          child:AnimatedContainer(
+            duration:const Duration(milliseconds:180),
+            width:current?72:64,height:current?72:64,
+            decoration:BoxDecoration(
+              shape:BoxShape.circle,
+              color:exam&&open&&!passed?AppColors.gold.withValues(alpha:.16):passed?AppColors.teal:open?AppColors.card:AppColors.navy2,
+              border:Border.all(color:exam&&open&&!passed?AppColors.gold:current?AppColors.teal:passed?AppColors.teal.withValues(alpha:.8):AppColors.muted.withValues(alpha:.12),width:current?4:2),
+              boxShadow:current?[BoxShadow(color:AppColors.teal.withValues(alpha:.28),blurRadius:18,spreadRadius:2)]:null,
+            ),
+            child:Center(
+              child:passed
+                ? const Icon(Icons.check_rounded,color:Colors.white,size:32)
+                : open
+                  ? (exam ? const Icon(Icons.workspace_premium_rounded,color:AppColors.gold,size:32) : Text('$lesson',style:const TextStyle(fontSize:25,fontWeight:FontWeight.w900)))
+                  : const Icon(Icons.lock_rounded,color:AppColors.muted,size:25),
+            ),
           ),
         ),
-        Text(
-          tr(
-            lesson==5?tr('Экзамен','Exam','Емтихан'):tr('Урок $lesson','Lesson $lesson','Сабақ $lesson'),
-          ),
-          style: TextStyle(
-            color: open ? Colors.white : AppColors.muted.withValues(alpha: .65),
-            fontWeight: FontWeight.w800,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 6),
-      ],
-    );
+        if(g>0) Positioned(right:22,child:Container(width:34,height:34,decoration:BoxDecoration(color:AppColors.gold.withValues(alpha:.15),shape:BoxShape.circle,border:Border.all(color:AppColors.gold.withValues(alpha:.5))),child:Center(child:Text('$g',style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w900))))),
+      ])),
+      Text(lesson==5?tr('Экзамен','Exam','Емтихан'):tr('Урок $lesson','Lesson $lesson','Сабақ $lesson'),style:TextStyle(color:open?Colors.white:AppColors.muted.withValues(alpha:.65),fontWeight:FontWeight.w800,fontSize:12)),
+      const SizedBox(height:6),
+    ]);
   }
+}  }
 }
