@@ -4,399 +4,112 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/lesson_content.dart';
 import '../services/speech_service.dart';
+import '../services/audio_service.dart';
 import '../services/storage_service.dart';
 import '../services/user_profile_service.dart';
 import '../services/lesson_database.dart';
 import '../services/qazaqsha_database.dart';
 import 'streak_screen.dart';
 
-class LessonScreen extends StatefulWidget {
-  final String topic, level;
-  final int lessonNumber;
-  const LessonScreen({super.key, required this.topic, required this.level, this.lessonNumber=1});
-  @override State<LessonScreen> createState()=>_LessonScreenState();
+class LessonScreen extends StatefulWidget{
+ final String topic,level; final int lessonNumber;
+ const LessonScreen({super.key,required this.topic,required this.level,this.lessonNumber=1});
+ @override State<LessonScreen> createState()=>_LessonScreenState();
 }
+class _LessonScreenState extends State<LessonScreen>{
+ UserProfile? profile; final speech=SpeechService(); final audio=AudioService.instance;
+ final storage=StorageService(); final db=LessonDatabase.instance; final statsDb=QazaqshaDatabase.instance;
+ late LessonPack pack; ExamPack? exam;
+ int phase=0,index=0,correct=0; bool done=false,listening=false,recognizing=false,stopping=false,checking=false;
+ String feedback=''; Timer? maxTimer,ampTimer; DateTime? started,lastSpeech;
+ String? pairLeft; final Set<String> pairDone={};
+ final answer=TextEditingController();
 
-class _LessonScreenState extends State<LessonScreen> {
-  late LessonPack pack;
-  UserProfile? profile;
-  final speech=SpeechService();
-  final storage=StorageService();
-  final db=LessonDatabase.instance;
-  final statsDb=QazaqshaDatabase.instance;
-  final answer=TextEditingController();
-  int phase=0,index=0,correct=0;
-  bool listening=false,recognizing=false,done=false;
-  String feedback='';
-  List<String> selected=[],shuffled=[];
-  Timer? maxTimer,ampTimer;
-  bool stopping=false,checkingAmplitude=false;
-  DateTime? started,lastSpeech;
+ bool get isExam=>exam!=null;
+ int get totalTasks=>isExam?15:10;
+ List<TranslationQuestion> get translations=>isExam?exam!.translations:pack.translations;
+ List<MatchPair> get pairs=>isExam?exam!.pairs:pack.pairs;
+ List<FillQuestion> get fills=>isExam?exam!.fills:pack.fills;
+ List<SpeakingPrompt> get speaking=>isExam?exam!.speaking:[...pack.speaking];
+ String get lang=>profile?.language??'ru';
+ String tx(String ru,String en,String kk)=>lang=='en'?en:lang=='kk'?kk:ru;
 
-  String get lang=>profile?.language??'ru';
-  String tx(String ru,String en,String kk)=>lang=='en'?en:lang=='kk'?kk:ru;
+ @override void initState(){super.initState();pack=lessonFor(widget.topic,lesson:widget.lessonNumber);exam=widget.lessonNumber==5?examFor(widget.topic):null;_load();}
+ Future<void> _load()async{profile=await UserProfileService().profile;await speech.init();if(mounted)setState((){});}
+ @override void dispose(){maxTimer?.cancel();ampTimer?.cancel();speech.cancel();speech.dispose();answer.dispose();super.dispose();}
 
-  @override void initState(){
-    super.initState();
-    pack=lessonFor(widget.topic,lesson:widget.lessonNumber);
-    _load();
-  }
-  Future<void> _load()async{
-    profile=await UserProfileService().profile;
-    await speech.init();
-    if(mounted)setState((){});
-  }
-  @override void dispose(){
-    maxTimer?.cancel(); ampTimer?.cancel();
-    speech.cancel(); answer.dispose(); speech.dispose(); super.dispose();
-  }
+ String norm(String s)=>s.toLowerCase().replaceAll('ё','е').replaceAll(RegExp(r'[.!?,;:—–-]'),' ').replaceAll(RegExp(r'\s+'),' ').trim();
+ void resetStep(){feedback='';pairLeft=null;pairDone.clear();answer.clear();}
+ void advance(){if(index<currentCount()-1){index++;resetStep();}else if(phase<4){phase++;index=0;resetStep();}else{finish();return;}setState((){});}
+ int currentCount()=>phase==0?translations.length:phase==1?1:phase==2?fills.length:speaking.length;
 
-  String norm(String s)=>s.toLowerCase().replaceAll('ё','е').replaceAll(RegExp(r'[.!?,;:—–-]'),' ').replaceAll(RegExp(r'\s+'),' ').trim();
+ Future<void> chooseTranslation(int n)async{
+   if(n==translations[index].correct){correct++;setState(()=>feedback=tx('Правильно!','Correct!','Дұрыс!'));await Future.delayed(const Duration(milliseconds:220));if(mounted)advance();}
+   else setState(()=>feedback=tx('Не совсем. Попробуй ещё.','Not quite. Try again.','Қайта көр.'));
+ }
+ Future<void> chooseFill(int n)async{
+   if(n==fills[index].correct){correct++;setState(()=>feedback=tx('Верно!','Correct!','Дұрыс!'));await Future.delayed(const Duration(milliseconds:220));if(mounted)advance();}
+   else setState(()=>feedback=tx('Попробуй ещё.','Try again.','Қайта көр.'));
+ }
+ void selectPair(String kk){
+   if(pairDone.contains(kk))return;
+   setState(()=>pairLeft=kk);
+ }
+ void selectPairTranslation(String ru){
+   if(pairLeft==null)return;
+   final p=pairs.firstWhere((x)=>x.kk==pairLeft);
+   if(p.ru==ru){
+     pairDone.add(p.kk);pairLeft=null;
+     if(pairDone.length==pairs.length){correct++;feedback=tx('Отлично! Все пары найдены.','Excellent! All pairs matched.','Керемет! Барлық жұп табылды.');Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});}
+     else setState(()=>feedback='');
+   }else setState(()=>feedback=tx('Пока не совпало. Попробуй ещё.','Not a match yet. Try again.','Сәйкес емес. Қайта көр.'));
+ }
 
-  void advance(){
-    if(phase==5 && index==2){ finish(); return; }
-    if(index<2){
-      index++; feedback=''; answer.clear(); selected=[]; shuffled=[];
-    }else{
-      index=0; phase++; feedback=''; answer.clear(); selected=[]; shuffled=[];
-    }
-    setState((){});
-  }
-
-  Future<void> wordAnswer(String value)async{
-    if(value==pack.words[index].tr(lang)){
-      correct++; setState(()=>feedback=tx('Правильно!','Correct!','Дұрыс!'));
-      await Future.delayed(const Duration(milliseconds:220));
-      if(mounted)advance();
-    }else{
-      setState(()=>feedback=tx('Не совсем. Попробуй ещё.','Not quite. Try again.','Қайта көр.'));
-    }
-  }
-
-  Future<void> sentenceAnswer()async{
-    if(selected.join(' ')==pack.sentences[index].kk){
-      correct++; setState(()=>feedback=tx('Отлично!','Excellent!','Керемет!'));
-      await Future.delayed(const Duration(milliseconds:220));
-      if(mounted)advance();
-    }else{
-      setState(()=>feedback=tx('Порядок слов неверный.','Word order is not right.','Сөздердің реті дұрыс емес.'));
-    }
-  }
-
-  Future<void> fillAnswer(String value)async{
-    if(value==pack.words[index].kk){
-      correct++; setState(()=>feedback=tx('Верно!','Correct!','Дұрыс!'));
-      await Future.delayed(const Duration(milliseconds:220));
-      if(mounted)advance();
-    }else{
-      setState(()=>feedback=tx('Попробуй ещё.','Try again.','Қайта көр.'));
-    }
-  }
-
-  Future<void> listen(String target)async{
-    if(listening){
-      if(stopping||recognizing)return;
-      await stopListen(target); return;
-    }
-    if(!await speech.init())return;
-    setState((){listening=true;recognizing=false;feedback='';});
-    stopping=false; started=DateTime.now(); lastSpeech=started;
-    maxTimer?.cancel(); ampTimer?.cancel();
-    maxTimer=Timer(const Duration(seconds:15),(){
-      if(mounted&&listening&&!stopping&&!recognizing)stopListen(target);
-    });
-    ampTimer=Timer.periodic(const Duration(milliseconds:150),(_)async{
-      if(!mounted||!listening||stopping||recognizing||checkingAmplitude)return;
-      checkingAmplitude=true;
-      try{
-        final a=await speech.getRecorderAmplitude();
-        if(!mounted||!listening||stopping||recognizing)return;
-        final s=started;if(s==null)return;
-        final now=DateTime.now();
-        if(now.difference(s)<const Duration(milliseconds:700))return;
-        if(a>-42)lastSpeech=now;
-        else if(now.difference(lastSpeech??s)>=const Duration(milliseconds:900))await stopListen(target);
-      }catch(_){
-      }finally{checkingAmplitude=false;}
-    });
-    try{
-      await speech.listen(onText:(text){
-        if(text.trim().isNotEmpty)_recognized(text,target);
-      });
-    }catch(e){
-      maxTimer?.cancel();ampTimer?.cancel();
-      if(mounted)setState((){
-        listening=false;recognizing=false;
-        feedback=tx('Ошибка микрофона: ','Microphone error: ','Микрофон қатесі: ')+e.toString();
-      });
-    }
-  }
-
-  Future<void> stopListen(String target)async{
-    if(stopping||recognizing)return;
-    stopping=true;maxTimer?.cancel();ampTimer?.cancel();
-    if(mounted)setState(()=>recognizing=true);
-    try{
-      final text=await speech.stop();
-      if(text!=null&&text.trim().isNotEmpty)_recognized(text,target);
-      else if(mounted)setState((){
-        listening=false;recognizing=false;
-        feedback=tx('Речь не распознана.','Speech not recognized.','Сөз танылмады.');
-      });
-    }catch(e){
-      if(mounted)setState((){
-        listening=false;recognizing=false;
-        feedback=tx('Ошибка распознавания.','Recognition error.','Тану қатесі.');
-      });
-    }finally{stopping=false;}
-  }
-
-  void _recognized(String text,String target){
-    if(!mounted)return;
-    final n=norm(text),e=norm(target);
-    final words=e.split(' ').where((w)=>w.length>2).toList();
-    final hit=phase==5
-      ?words.isNotEmpty&&words.where(n.contains).length>=max(1,(words.length*.45).ceil())
-      :(n==e||words.every(n.contains));
-    if(hit){
-      correct++;
-      setState((){listening=false;recognizing=false;feedback=tx('Отлично!','Great!','Керемет!');});
-      Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});
-    }else{
-      setState((){listening=false;recognizing=false;feedback=tx('Я услышал: ','I heard: ','Мен естідім: ')+text;});
-    }
-  }
-
-  Future<void> finish()async{
-    if(done)return;
-    done=true;
-    final percent=((correct/15)*100).round();
-    final grade=percent>90?5:percent>75?4:percent>=60?3:0;
-    final wasPassed=await db.isPassed(widget.topic,widget.lessonNumber);
-    await db.saveResult(topic:widget.topic,lesson:widget.lessonNumber,score:percent,grade:grade);
-    if(!wasPassed && grade>=3){
-      final xp=pack.words.length*5+pack.sentences.length*8+pack.dialogue.length*10+30;
-      await statsDb.recordCompletion(xp:xp,words:pack.words.length);
-      await storage.addProgress(xpAdd:xp,lessonAdd:1,wordAdd:pack.words.length);
-    }
-    if(mounted)setState(()=>phase=6);
-  }
-
-  @override Widget build(BuildContext context){
-    if(profile==null)return const Scaffold(body:Center(child:CircularProgressIndicator()));
-    return Scaffold(
-      appBar:AppBar(
-        title:Text(widget.topic+' • '+widget.lessonNumber.toString()+'-урок',style:const TextStyle(fontWeight:FontWeight.w900)),
-        actions:[Padding(padding:const EdgeInsets.only(right:16),child:Center(child:Text(
-          phase.clamp(0,6).toString()+'/6',style:const TextStyle(color:AppColors.muted))))],
-      ),
-      body:phase==6?complete():lessonBody(),
-    );
-  }
-
-  Widget lessonBody(){
-    if(phase==2&&shuffled.isEmpty){
-      shuffled=pack.sentences[index].kk.split(' ')..shuffle(Random(index+widget.lessonNumber*10));
-    }
-    return Column(children:[
-      LinearProgressIndicator(value:phase/6,minHeight:5),
-      Expanded(child:ListView(padding:const EdgeInsets.all(20),children:[
-        Text(titles[phase],style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900)),
-        const SizedBox(height:8),Text(subtitles[phase],style:const TextStyle(color:AppColors.muted)),
-        const SizedBox(height:24),
-        if(phase==0)training()
-        else if(phase==1)wordQuiz()
-        else if(phase==2)sentence()
-        else if(phase==3)fill()
-        else if(phase==4)speaking()
-        else dialogue(),
-      ])),
-    ]);
-  }
-
-  List<String> get titles=>[
-    tx('Обучение','Learn','Үйрену'),
-    tx('Слова','Words','Сөздер'),
-    tx('Собери предложение','Build sentence','Сөйлем құрастыр'),
-    tx('Пропущенное слово','Missing word','Жоғалған сөз'),
-    tx('Произнеси','Speak','Айт'),
-    tx('Диалог с Аишей','Dialogue with Aisha','Айшамен диалог'),
-  ];
-  List<String> get subtitles=>[
-    tx('Сначала запоминаем слова.','First learn the words.','Алдымен сөздерді жаттаймыз.'),
-    tx('Выбери правильный перевод.','Choose the correct translation.','Дұрыс аударманы таңда.'),
-    tx('Собери фразу из слов.','Build the phrase.','Сөздерден сөйлем құрастыр.'),
-    tx('Вспомни слово и вставь его.','Recall and insert the word.','Сөзді есіңе түсіріп, қой.'),
-    tx('Произнеси фразу.','Say the phrase.','Сөйлемді айт.'),
-    tx('Ответь Аише по-казахски.','Answer Aisha in Kazakh.','Айшаға қазақша жауап бер.'),
-  ];
-
-  Widget counter()=>Row(children:[
-    Text((index+1).toString()+' / 3',style:const TextStyle(color:AppColors.muted)),
-    const SizedBox(width:12),Expanded(child:LinearProgressIndicator(value:(index+1)/3,minHeight:7))
-  ]);
-
-  Widget training()=>Column(children:[
-    Container(padding:const EdgeInsets.all(18),decoration:BoxDecoration(
-      color:AppColors.card,borderRadius:BorderRadius.circular(24)),
-      child:Text(tx(
-        'Запомни слова. Слова из прошлых тем будут возвращаться для повторения.',
-        'Learn the words. Previous-topic words will return for spaced review.',
-        'Сөздерді жатта. Алдыңғы тақырыптардың сөздері қайталау үшін қайта келеді.',
-      ),style:const TextStyle(fontSize:17,height:1.4))),
-    const SizedBox(height:12),
-    ...pack.words.map((w)=>study(w.kk,w.tr(lang),false)),
-    if(pack.reviewWord!=null)study(
-      pack.reviewWord!.kk,
-      tx('Повторение: '+pack.reviewWord!.ru,'Review: '+pack.reviewWord!.en,'Қайталау: '+pack.reviewWord!.kk),
-      true),
-    const SizedBox(height:10),
-    FilledButton(onPressed:()=>setState(()=>phase=1),
-      child:SizedBox(width:double.infinity,child:Center(child:Text(tx('Начать задания','Start exercises','Тапсырмаларды бастау'))))),
-  ]);
-
-  Widget study(String kk,String tr,bool review)=>Card(child:Padding(
-    padding:const EdgeInsets.all(16),
-    child:Row(children:[
-      Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Text(review?tx('Повторение','Review','Қайталау'):tx('Новое слово','New word','Жаңа сөз'),
-          style:const TextStyle(color:AppColors.muted,fontSize:12)),
-        Text(kk,style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
-        Text(tr,style:const TextStyle(color:AppColors.muted)),
-      ])),
-      IconButton(onPressed:()=>speech.speak(kk),
-        icon:const Icon(Icons.volume_up_rounded,color:AppColors.teal)),
-    ])));
-
-  Widget wordQuiz(){
-    final w=pack.words[index];
-    final options=[w.tr(lang),...pack.words.where((x)=>x!=w).map((x)=>x.tr(lang))]
-      ..shuffle(Random(index+30));
-    return Column(children:[
-      counter(),const SizedBox(height:20),
-      Text(w.kk,style:const TextStyle(fontSize:36,fontWeight:FontWeight.w900)),
-      const SizedBox(height:20),
-      ...options.map((x)=>Padding(padding:const EdgeInsets.only(bottom:10),
-        child:ListTile(onTap:()=>wordAnswer(x),tileColor:AppColors.card,
-          shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),title:Text(x)))),
-      if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-    ]);
-  }
-
-  Widget sentence(){
-    final s=pack.sentences[index];
-    return Column(children:[
-      counter(),const SizedBox(height:18),
-      Text(s.tr(lang),textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted,fontSize:18)),
-      const SizedBox(height:18),
-      Container(width:double.infinity,padding:const EdgeInsets.all(12),
-        decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),
-        child:Wrap(spacing:8,children:selected.map((x)=>Chip(label:Text(x))).toList())),
-      const SizedBox(height:15),
-      Wrap(spacing:8,runSpacing:8,children:shuffled.where((x)=>!selected.contains(x))
-        .map((x)=>ActionChip(label:Text(x),onPressed:()=>setState(()=>selected.add(x)))).toList()),
-      FilledButton(onPressed:selected.isEmpty?null:sentenceAnswer,
-        child:Text(tx('Проверить','Check','Тексеру'))),
-      TextButton(onPressed:()=>setState(()=>selected=[]),
-        child:Text(tx('Очистить','Clear','Тазалау'))),
-      if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-    ]);
-  }
-
-  Widget fill(){
-    final w=pack.words[index];final s=pack.sentences[index];
-    final options=[w.kk,...pack.words.where((x)=>x!=w).map((x)=>x.kk)]
-      ..shuffle(Random(index+90));
-    return Column(children:[
-      counter(),const SizedBox(height:22),
-      Text(s.kk.replaceFirst(w.kk,'_____'),
-        style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
-      const SizedBox(height:10),Text(s.tr(lang),style:const TextStyle(color:AppColors.muted)),
-      const SizedBox(height:22),
-      ...options.map((x)=>Padding(padding:const EdgeInsets.only(bottom:10),
-        child:ListTile(onTap:()=>fillAnswer(x),tileColor:AppColors.card,
-          shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),
-          title:Text(x,textAlign:TextAlign.center)))),
-      if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-    ]);
-  }
-
-  Widget speaking(){
-    final s=pack.sentences[index];
-    return Column(children:[
-      counter(),const SizedBox(height:22),
-      Text(s.kk,textAlign:TextAlign.center,style:const TextStyle(fontSize:29,fontWeight:FontWeight.w900)),
-      IconButton(onPressed:()=>speech.speak(s.kk),
-        icon:const Icon(Icons.volume_up_rounded,color:AppColors.teal,size:30)),
-      Text(s.tr(lang),style:const TextStyle(color:AppColors.muted)),
-      const SizedBox(height:25),
-      CircleAvatar(radius:44,backgroundColor:AppColors.teal.withValues(alpha:.15),
-        child:recognizing?const Icon(Icons.hourglass_top_rounded,color:AppColors.teal,size:38)
-          :IconButton(iconSize:40,onPressed:()=>listen(s.kk),
-            icon:Icon(listening?Icons.stop:Icons.mic,color:AppColors.teal))),
-      const SizedBox(height:12),
-      Text(recognizing?tx('Распознаём речь…','Recognizing…','Танып жатырмыз…')
-        :tx('Нажми и произнеси.','Tap and speak.','Басып айт.')),
-      if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-    ]);
-  }
-
-  Widget dialogue(){
-    final d=pack.dialogue[index];
-    final expected=d.answer.replaceAll('{name}',profile!.nickname);
-    return Column(children:[
-      counter(),const SizedBox(height:20),
-      Container(width:double.infinity,padding:const EdgeInsets.all(18),
-        decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(20)),
-        child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          const Text('Аиша',style:TextStyle(color:AppColors.teal,fontWeight:FontWeight.w800)),
-          const SizedBox(height:8),Text(d.q(lang),style:const TextStyle(fontSize:18)),
-          IconButton(onPressed:()=>speech.speak(d.question),
-            icon:const Icon(Icons.volume_up_rounded,color:AppColors.teal)),
-        ])),
-      const SizedBox(height:18),
-      TextField(controller:answer,onChanged:(_)=>setState((){}),
-        decoration:InputDecoration(hintText:'Қазақша...',filled:true,fillColor:AppColors.card,
-          border:OutlineInputBorder(borderRadius:BorderRadius.circular(20),borderSide:BorderSide.none))),
-      Row(mainAxisAlignment:MainAxisAlignment.center,children:[
-        IconButton(onPressed:()=>listen(expected),
-          icon:recognizing?const Icon(Icons.hourglass_top_rounded,color:AppColors.teal)
-            :Icon(listening?Icons.stop_circle:Icons.mic,color:AppColors.teal,size:34)),
-        FilledButton(onPressed:answer.text.trim().isEmpty?null:()=>_recognized(answer.text,expected),
-          child:Text(tx('Проверить','Check','Тексеру'))),
-      ]),
-      if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
-    ]);
-  }
-
-  Widget complete(){
-    final percent=((correct/15)*100).round();
-    final grade=percent>90?5:percent>75?4:percent>=60?3:0;
-    final passed=grade>=3;
-    return Center(child:Padding(padding:const EdgeInsets.all(28),child:Column(
-      mainAxisAlignment:MainAxisAlignment.center,children:[
-        Text(passed?'🎉':'💪',style:const TextStyle(fontSize:76)),
-        Text(passed?tx('Урок пройден!','Lesson passed!','Сабақ өтті!')
-          :tx('Урок не пройден','Lesson not passed','Сабақ өтпеді'),
-          style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
-        const SizedBox(height:10),Text(percent.toString()+'%',
-          style:const TextStyle(fontSize:34,color:AppColors.gold,fontWeight:FontWeight.w900)),
-        if(passed)Text('Оценка: '+grade.toString(),
-          style:const TextStyle(fontSize:22,fontWeight:FontWeight.w800)),
-        const SizedBox(height:12),
-        Text(passed?tx('Результат сохранён. Следующий урок открыт.','Result saved. Next lesson unlocked.','Нәтиже сақталды. Келесі сабақ ашылды.')
-          :tx('Нужно минимум 60%. Пройди урок ещё раз.','You need at least 60%. Retry the lesson.','Кемінде 60% керек. Сабақты қайта өт.'),
-          textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),
-        const SizedBox(height:25),
-        FilledButton(onPressed:(){
-          if(passed && widget.topic=='Танысу' && widget.lessonNumber==1){
-            Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>StreakScreen(
-              language:lang,goal:profile?.goal??'',
-            )));
-          }else{
-            Navigator.pop(context);
-          }
-        },child:Text(tx('Продолжить','Continue','Жалғастыру'))),
-      ])));
-  }
-}
+ Future<void> listen(String target)async{
+   if(listening){if(stopping||recognizing)return;await stopListen(target);return;}
+   if(!await speech.init())return;
+   setState((){listening=true;recognizing=false;feedback='';});stopping=false;started=DateTime.now();lastSpeech=started;
+   maxTimer?.cancel();ampTimer?.cancel();
+   maxTimer=Timer(const Duration(seconds:15),(){if(mounted&&listening&&!stopping&&!recognizing)stopListen(target);});
+   ampTimer=Timer.periodic(const Duration(milliseconds:150),(_)async{
+     if(!mounted||!listening||stopping||recognizing||checking)return;checking=true;
+     try{final a=await speech.getRecorderAmplitude();if(!mounted||!listening||stopping||recognizing)return;final s=started;if(s==null)return;final now=DateTime.now();if(now.difference(s)<const Duration(milliseconds:700))return;if(a>-42)lastSpeech=now;else if(now.difference(lastSpeech??s)>=const Duration(milliseconds:900))await stopListen(target);}catch(_){}finally{checking=false;}
+   });
+   try{await speech.listen(onText:(text){if(text.trim().isNotEmpty)_recognized(text,target);});}
+   catch(e){maxTimer?.cancel();ampTimer?.cancel();if(mounted)setState((){listening=false;recognizing=false;feedback=tx('Ошибка микрофона','Microphone error','Микрофон қатесі');});}
+ }
+ Future<void> stopListen(String target)async{
+   if(stopping||recognizing)return;stopping=true;maxTimer?.cancel();ampTimer?.cancel();if(mounted)setState(()=>recognizing=true);
+   try{final text=await speech.stop();if(text!=null&&text.trim().isNotEmpty)_recognized(text,target);else if(mounted)setState((){listening=false;recognizing=false;feedback=tx('Речь не распознана.','Speech not recognized.','Сөз танылмады.');});}
+   catch(_){if(mounted)setState((){listening=false;recognizing=false;feedback=tx('Ошибка распознавания.','Recognition error.','Тану қатесі.');});}finally{stopping=false;}
+ }
+ void _recognized(String text,String target){
+   if(!mounted)return;final n=norm(text),e=norm(target);final ws=e.split(' ').where((x)=>x.length>2).toList();final hit=ws.isNotEmpty&&ws.where(n.contains).length>=max(1,(ws.length*.45).ceil());
+   if(hit){correct++;setState((){listening=false;recognizing=false;feedback=tx('Отлично!','Great!','Керемет!');});Future.delayed(const Duration(milliseconds:300),(){if(mounted)advance();});}
+   else setState((){listening=false;recognizing=false;feedback=tx('Я услышал: ','I heard: ','Мен естідім: ')+text;});
+ }
+ Future<void> finish()async{
+   if(done)return;done=true;final percent=((correct/totalTasks)*100).round();final grade=percent>90?5:percent>75?4:percent>=60?3:0;
+   final wasPassed=await db.isPassed(widget.topic,widget.lessonNumber);await db.saveResult(topic:widget.topic,lesson:widget.lessonNumber,score:percent,grade:grade);
+   if(!wasPassed&&grade>=3){final xp=isExam?120:pack.words.length*5+pack.speaking.length*8+30;await statsDb.recordCompletion(xp:xp,words:isExam?0:pack.words.length);await storage.addProgress(xpAdd:xp,lessonAdd:1,wordAdd:isExam?0:pack.words.length);}
+   if(mounted)setState(()=>phase=5);
+ }
+ @override Widget build(BuildContext context){
+   if(profile==null)return const Scaffold(body:Center(child:CircularProgressIndicator()));
+   return Scaffold(appBar:AppBar(title:Text(isExam?'Танысу • Экзамен':'Танысу • '+widget.lessonNumber.toString()+'-урок',style:const TextStyle(fontWeight:FontWeight.w900)),actions:[Padding(padding:const EdgeInsets.only(right:16),child:Center(child:Text(phase<5?(phase+1).toString()+'/5':'',style:const TextStyle(color:AppColors.muted))))]),body:phase==5?complete():body());
+ }
+ Widget body()=>Column(children:[LinearProgressIndicator(value:(phase+1)/5,minHeight:5),Expanded(child:ListView(padding:const EdgeInsets.all(20),children:[Text(title(),style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900)),const SizedBox(height:7),Text(subtitle(),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:22),if(phase==0)translationBlock()else if(phase==1)matchBlock()else if(phase==2)fillBlock()else if(phase==3)speakingBlock()else examSpeakingExtra()]))]);
+ String title(){if(isExam)return [tx('Проверка знаний','Knowledge check','Білімді тексеру'),tx('Найди пары','Match the pairs','Жұпты тап'),tx('Вставь слово в диалоге','Complete the dialogue','Диалогты толықтыр'),tx('Финальный голосовой экзамен','Final speaking exam','Қорытынды дауыс емтиханы'),tx('Финальный голосовой экзамен','Final speaking exam','Қорытынды дауыс емтиханы')][phase];return [tx('Как переводится?','What does it mean?','Қалай аударылады?'),tx('Найди пару','Match the pairs','Жұпты тап'),tx('Вставь пропущенное слово','Fill the missing word','Жоғалған сөзді қой'),tx('Повтори по голосовому','Repeat by voice','Дауыспен қайтала'),tx('Повтори по голосовому','Repeat by voice','Дауыспен қайтала')][phase];}
+ String subtitle(){if(isExam)return ['5 вопросов','5 questions','5 сұрақ'],['5 пар','5 pairs','5 жұп'],['3 задания','3 tasks','3 тапсырма'],['2 голосовых задания','2 speaking tasks','2 дауыс тапсырмасы'],['','', '']][phase];return ['3 задания с 4 вариантами','3 questions with 4 options','4 нұсқалы 3 сұрақ'],['1 задание на 3 пары','1 task with 3 pairs','3 жұптан тұратын 1 тапсырма'],['3 задания','3 tasks','3 тапсырма'],['3 задания','3 speaking tasks','3 дауыс тапсырма'],['','',''][phase];}
+ Widget sound(String audioName)=>IconButton(onPressed:()=>audio.speakAsset(audioName),icon:const Icon(Icons.volume_up_rounded,color:AppColors.teal));
+ Widget progress(int n,int total)=>Row(children:[Text('$n / $total',style:const TextStyle(color:AppColors.muted)),const SizedBox(width:12),Expanded(child:LinearProgressIndicator(value:n/total,minHeight:7))]);
+ Widget translationBlock(){
+   final q=translations[index];final opts=[...q.ru];final order=List.generate(opts.length,(i)=>i)..shuffle(Random(index+(isExam?300:30)));return Column(children:[progress(index+1,translations.length),const SizedBox(height:20),Row(mainAxisAlignment:MainAxisAlignment.center,children:[Flexible(child:Text(q.kk,textAlign:TextAlign.center,style:const TextStyle(fontSize:32,fontWeight:FontWeight.w900))),sound(q.audio)]),const SizedBox(height:10),Text(q.ruPrompt,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),...order.map((i)=>Padding(padding:const EdgeInsets.only(bottom:10),child(ListTile(onTap:()=>chooseTranslation(i),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),leading:CircleAvatar(child:Text(String.fromCharCode(65+i))),title:Text(opts[i]))))),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
+ Widget matchBlock(){
+   final left=pairs.map((p)=>p.kk).toList();final right=pairs.map((p)=>p.ru).toList()..shuffle(Random(isExam?77:17));return Column(children:[progress(pairDone.length, pairs.length),const SizedBox(height:18),if(pairLeft!=null)Text(tx('Выбрано: $pairLeft — теперь выбери перевод','Selected: $pairLeft — now choose the translation','Таңдалды: $pairLeft — енді аудармасын таңда'),style:const TextStyle(color:AppColors.teal,fontWeight:FontWeight.w800)),const SizedBox(height:12),...left.map((kk)=>Padding(padding:const EdgeInsets.only(bottom:8),child(ListTile(onTap:()=>selectPair(kk),tileColor:pairDone.contains(kk)?AppColors.teal.withValues(alpha:.16):pairLeft==kk?AppColors.teal.withValues(alpha:.22):AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),title:Text(kk),leading:soundIconFor(kk))))),const Divider(height:25),...right.map((ru)=>Padding(padding:const EdgeInsets.only(bottom:8),child(ListTile(onTap:()=>selectPairTranslation(ru),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),title:Text(ru)))),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
+ Widget soundIconFor(String kk){final p=pairs.firstWhere((x)=>x.kk==kk);return sound(p.audio);}
+ Widget fillBlock(){
+   final q=fills[index];final order=List.generate(q.options.length,(i)=>i)..shuffle(Random(index+90));return Column(children:[progress(index+1,fills.length),const SizedBox(height:20),Row(mainAxisAlignment:MainAxisAlignment.center,children:[Flexible(child:Text(q.sentence,textAlign:TextAlign.center,style:const TextStyle(fontSize:26,fontWeight:FontWeight.w900))),sound(q.audio)]),const SizedBox(height:10),Text(q.ru,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),...order.map((i)=>Padding(padding:const EdgeInsets.only(bottom:10),child(ListTile(onTap:()=>chooseFill(i),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),title:Text(q.options[i],textAlign:TextAlign.center)))),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
+ Widget speakingBlock(){final list=speaking;final s=list[index];return Column(children:[progress(index+1,list.length),const SizedBox(height:20),Row(mainAxisAlignment:MainAxisAlignment.center,children:[Flexible(child:Text(s.kk,textAlign:TextAlign.center,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900))),sound(s.audio)]),const SizedBox(height:8),Text(s.ru,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),const SizedBox(height:25),CircleAvatar(radius:46,backgroundColor:AppColors.teal.withValues(alpha:.15),child:recognizing?const Icon(Icons.hourglass_top_rounded,color:AppColors.teal,size:38):IconButton(iconSize:42,onPressed:()=>listen(s.kk),icon:Icon(listening?Icons.stop:Icons.mic,color:AppColors.teal))),const SizedBox(height:12),Text(recognizing?tx('Распознаём речь…','Recognizing…','Танып жатырмыз…'):tx('Нажми и произнеси.','Tap and speak.','Басып айт.')),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
+ Widget examSpeakingExtra(){return const SizedBox.shrink();}
+ Widget complete(){final percent=((correct/totalTasks)*100).round();final grade=percent>90?5:percent>75?4:percent>=60?3:0;final passed=grade>=3;return Center(child:Padding(padding:const EdgeInsets.all(28),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Text(isExam?'🏆':'🎉',style:const TextStyle(fontSize:76)),Text(passed?tx(isExam?'Экзамен сдан!':'Урок пройден!','Passed!','Өтті!'):tx(isExam?'Экзамен не сдан':'Урок не пройден','Not passed','Өтпеді'),style:const TextStyle(fontSize:29,fontWeight:FontWeight.w900),textAlign:TextAlign.center),const SizedBox(height:10),Text('$percent%',style:const TextStyle(fontSize:34,color:AppColors.gold,fontWeight:FontWeight.w900)),if(passed)Text('Оценка: $grade',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w800)),const SizedBox(height:12),Text(passed?tx('Результат сохранён.','Result saved.','Нәтиже сақталды.'):tx('Нужно минимум 60%. Попробуй ещё раз.','You need at least 60%. Retry.','Кемінде 60% керек. Қайта өт.'),textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),const SizedBox(height:25),FilledButton(onPressed:(){if(passed&&widget.topic=='Танысу'&&widget.lessonNumber==1)Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>StreakScreen(language:lang,goal:profile?.goal??'')));else Navigator.pop(context);},child:Text(tx('Продолжить','Continue','Жалғастыру')))])));}}
