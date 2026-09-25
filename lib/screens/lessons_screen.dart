@@ -66,7 +66,10 @@ class _LessonsScreenState extends State<LessonsScreen>{
     final topic=topics[ti];
     final g=grade(topic.title,n);
     final open=unlocked(ti,n);
-    return ListTile(
+    return Material(
+      color:Colors.transparent,
+      borderRadius:BorderRadius.circular(16),
+      child:ListTile(
       contentPadding:const EdgeInsets.symmetric(horizontal:4),
       leading:Container(
         width:44,height:44,
@@ -87,6 +90,7 @@ class _LessonsScreenState extends State<LessonsScreen>{
         await Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:topic.title,level:topic.level,lessonNumber:n)));
         _load();
       },
+      ),
     );
   }
 }
