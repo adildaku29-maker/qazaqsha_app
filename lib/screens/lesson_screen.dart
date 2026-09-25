@@ -172,8 +172,9 @@ class _LessonScreenState extends State<LessonScreen> {
     done=true;
     final percent=((correct/15)*100).round();
     final grade=percent>90?5:percent>75?4:percent>=60?3:0;
-    final newlyPassed=await db.saveResult(topic:widget.topic,lesson:widget.lessonNumber,score:percent,grade:grade);
-    if(newlyPassed){
+    final wasPassed=await db.isPassed(widget.topic,widget.lessonNumber);
+    await db.saveResult(topic:widget.topic,lesson:widget.lessonNumber,score:percent,grade:grade);
+    if(!wasPassed && grade>=3){
       final xp=pack.words.length*5+pack.sentences.length*8+pack.dialogue.length*10+30;
       await statsDb.recordCompletion(xp:xp,words:pack.words.length);
       await storage.addProgress(xpAdd:xp,lessonAdd:1,wordAdd:pack.words.length);
