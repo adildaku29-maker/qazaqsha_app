@@ -34,10 +34,9 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
 
   bool unlocked(int topicIndex, int lesson) {
     if (topicIndex == 0 && lesson == 1) return true;
-    if (lesson > 1) {
-      return grade(topics[topicIndex].title, lesson - 1) >= 3;
-    }
-    return grade(topics[topicIndex - 1].title, 4) >= 3;
+    if (lesson > 1) return grade(topics[topicIndex].title, lesson - 1) >= 3;
+    final prev=topics[topicIndex-1].title;
+    return grade(prev, lessonCountFor(prev)) >= 3;
   }
 
   String tr(String ru, String en, String kk) =>
@@ -177,7 +176,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
         const SizedBox(height: 8),
 
         // Four circular lessons connected by a single vertical path.
-        ...List.generate(4, (i) => _lessonNode(topicIndex, i + 1)),
+        ...List.generate(lessonCountFor(topic.title), (i) => _lessonNode(topicIndex, i + 1)),
 
         if (topicIndex < topics.length - 1)
           Container(
@@ -200,6 +199,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
     final open = unlocked(topicIndex, lesson);
     final passed = g >= 3;
     final current = open && !passed;
+    final exam = lesson == 5;
 
     return Column(
       children: [
@@ -209,7 +209,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
             alignment: Alignment.center,
             children: [
               // Connector behind the circles.
-              if (lesson < 4)
+              if (lesson < lessonCountFor(topic.title))
                 Positioned(
                   top: 67,
                   bottom: 0,
@@ -260,15 +260,9 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
                   height: current ? 72 : 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: passed
-                        ? AppColors.teal
-                        : open
-                            ? AppColors.card
-                            : AppColors.navy2,
+                    color: exam && open && !passed ? AppColors.gold.withValues(alpha:.16) : passed ? AppColors.teal : open ? AppColors.card : AppColors.navy2,
                     border: Border.all(
-                      color: current
-                          ? AppColors.teal
-                          : passed
+                      color: exam && open && !passed ? AppColors.gold : current ? AppColors.teal : passed
                               ? AppColors.teal.withValues(alpha: .8)
                               : AppColors.muted.withValues(alpha: .12),
                       width: current ? 4 : 2,
@@ -285,19 +279,14 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
                   ),
                   child: Center(
                     child: passed
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: Colors.white,
-                            size: 32,
-                          )
+                        ? const Icon(Icons.check_rounded,color: Colors.white,size: 32)
                         : open
-                            ? Text(
+                            ? (exam ? const Icon(Icons.workspace_premium_rounded,color: AppColors.gold,size: 32) : Text(
                                 lesson.toString(),
                                 style: const TextStyle(
                                   fontSize: 25,
                                   fontWeight: FontWeight.w900,
-                                ),
-                              )
+                                ))
                             : const Icon(
                                 Icons.lock_rounded,
                                 color: AppColors.muted,
@@ -337,9 +326,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
         ),
         Text(
           tr(
-            'Урок $lesson',
-            'Lesson $lesson',
-            'Сабақ $lesson',
+            lesson==5?tr('Экзамен','Exam','Емтихан'):tr('Урок $lesson','Lesson $lesson','Сабақ $lesson'),
           ),
           style: TextStyle(
             color: open ? Colors.white : AppColors.muted.withValues(alpha: .65),
