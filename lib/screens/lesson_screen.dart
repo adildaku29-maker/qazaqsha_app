@@ -7,6 +7,7 @@ import '../services/speech_service.dart';
 import '../services/storage_service.dart';
 import '../services/user_profile_service.dart';
 import '../services/lesson_database.dart';
+import '../services/qazaqsha_database.dart';
 import 'streak_screen.dart';
 
 class LessonScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _LessonScreenState extends State<LessonScreen> {
   final speech=SpeechService();
   final storage=StorageService();
   final db=LessonDatabase.instance;
+  final statsDb=QazaqshaDatabase.instance;
   final answer=TextEditingController();
   int phase=0,index=0,correct=0;
   bool listening=false,recognizing=false,done=false;
@@ -170,10 +172,12 @@ class _LessonScreenState extends State<LessonScreen> {
     done=true;
     final percent=((correct/15)*100).round();
     final grade=percent>90?5:percent>75?4:percent>=60?3:0;
-    await db.saveResult(topic:widget.topic,lesson:widget.lessonNumber,score:percent,grade:grade);
-    if(grade>=3)await storage.addProgress(
-      xpAdd:pack.words.length*5+pack.sentences.length*8+pack.dialogue.length*10+30,
-      lessonAdd:1,wordAdd:pack.words.length);
+    final newlyPassed=await db.saveResult(topic:widget.topic,lesson:widget.lessonNumber,score:percent,grade:grade);
+    if(newlyPassed){
+      final xp=pack.words.length*5+pack.sentences.length*8+pack.dialogue.length*10+30;
+      await statsDb.recordCompletion(xp:xp,words:pack.words.length);
+      await storage.addProgress(xpAdd:xp,lessonAdd:1,wordAdd:pack.words.length);
+    }
     if(mounted)setState(()=>phase=6);
   }
 
