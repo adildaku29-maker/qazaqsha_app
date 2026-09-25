@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/lesson_content.dart';
 import '../services/lesson_database.dart';
+import '../services/qazaqsha_database.dart';
 import 'lesson_screen.dart';
 
 class LessonMapScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class LessonMapScreen extends StatefulWidget {
 
 class _LessonMapScreenState extends State<LessonMapScreen> {
   Map<String, int> grades = {};
+  int streak = 0;
 
   @override
   void initState() {
@@ -23,6 +25,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
 
   Future<void> _load() async {
     grades = await LessonDatabase.instance.grades();
+    streak = (await QazaqshaDatabase.instance.stats())['streak'] ?? 0;
     if (mounted) setState(() {});
   }
 
@@ -86,6 +89,8 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 18),
+            _streakCard(),
             const SizedBox(height: 24),
             ...List.generate(topics.length, _topic),
           ],
@@ -93,6 +98,23 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
       ),
     );
   }
+
+  Widget _streakCard() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+    decoration: BoxDecoration(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: AppColors.gold.withValues(alpha: .22)),
+    ),
+    child: Row(children: [
+      const Text('🔥', style: TextStyle(fontSize: 30)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('$streak ${tr('дн. подряд', 'days in a row', 'күн қатарынан')}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        Text(tr('Пройди урок сегодня, чтобы сохранить огонь', 'Complete a lesson today to keep your streak', 'Жалғастыру үшін бүгін сабақ өт'), style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+      ])),
+    ]),
+  );
 
   Widget _topic(int topicIndex) {
     final topic = topics[topicIndex];
