@@ -7,11 +7,14 @@ class AudioService {
 
   Future<void> speakAsset(String name) async {
     if (name == 'default') return;
+    final source = 'audio/tanysu/$name.mp3';
     try {
       await _player.stop();
-      await _player.play(AssetSource('audio/tanysu/$name.mp3'));
-    } catch (_) {
-      // Audio files are supplied separately; missing audio must not break the lesson.
+      await _player.setSource(AssetSource(source));
+      await _player.resume();
+      print('[QAZAQSHA][AUDIO] playing assets/$source');
+    } catch (e) {
+      print('[QAZAQSHA][AUDIO] FAILED assets/$source: $e');
     }
   }
 
