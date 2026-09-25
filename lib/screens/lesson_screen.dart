@@ -34,7 +34,7 @@ class _LessonScreenState extends State<LessonScreen>{
  String get lang=>profile?.language??'ru';
  String tx(String ru,String en,String kk)=>lang=='en'?en:lang=='kk'?kk:ru;
 
- @override void initState(){super.initState();pack=lessonFor(widget.topic,lesson:widget.lessonNumber);exam=widget.lessonNumber==5?examFor(widget.topic):null;_load();}
+ @override void initState(){super.initState();exam=widget.lessonNumber==5?examFor(widget.topic):null;pack=widget.lessonNumber==5?lessonFor(widget.topic,lesson:1):lessonFor(widget.topic,lesson:widget.lessonNumber);_load();}
  Future<void> _load()async{profile=await UserProfileService().profile;await speech.init();if(mounted)setState((){});}
  @override void dispose(){maxTimer?.cancel();ampTimer?.cancel();speech.cancel();speech.dispose();answer.dispose();super.dispose();}
 
