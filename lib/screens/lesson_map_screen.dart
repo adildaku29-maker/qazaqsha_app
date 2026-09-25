@@ -233,5 +233,4 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
       const SizedBox(height:6),
     ]);
   }
-}  }
 }
