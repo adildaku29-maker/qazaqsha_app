@@ -96,7 +96,14 @@ class _LessonScreenState extends State<LessonScreen>{
  }
  @override Widget build(BuildContext context){
    if(profile==null)return const Scaffold(body:Center(child:CircularProgressIndicator()));
-   return Scaffold(appBar:AppBar(title:Text(isExam?'Танысу • Экзамен':'Танысу • '+widget.lessonNumber.toString()+'-урок',style:const TextStyle(fontWeight:FontWeight.w900)),actions:[Padding(padding:const EdgeInsets.only(right:16),child:Center(child:Text(phase<5?((isExam?phase+1:phase)).toString()+'/'+(isExam?4:4):'',style:const TextStyle(color:AppColors.muted))))]),body:phase==5?complete():body());
+   final stepLabel=phase<5 ? (isExam ? (phase+1).toString() : phase.toString()) + '/4' : '';
+   return Scaffold(
+     appBar:AppBar(
+       title:Text(isExam?'Танысу • Экзамен':'Танысу • '+widget.lessonNumber.toString()+'-урок',style:const TextStyle(fontWeight:FontWeight.w900)),
+       actions:[Padding(padding:const EdgeInsets.only(right:16),child:Center(child:Text(stepLabel,style:const TextStyle(color:AppColors.muted))))],
+     ),
+     body:phase==5?complete():body(),
+   );
  }
  Widget body()=>Column(children:[LinearProgressIndicator(value:(phase+1)/4,minHeight:5),Expanded(child:ListView(padding:const EdgeInsets.all(20),children:[Text(title(),style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900)),const SizedBox(height:7),Text(subtitle(),style:const TextStyle(color:AppColors.muted)),const SizedBox(height:22),if(!isExam&&phase==0)trainingBlock()else if((isExam&&phase==0)||(!isExam&&phase==1))translationBlock()else if((isExam&&phase==1)||(!isExam&&phase==2))matchBlock()else if((isExam&&phase==2)||(!isExam&&phase==3))fillBlock()else speakingBlock()]))]);
  String title(){if(!isExam&&phase==0)return tx('Словарь урока','Lesson vocabulary','Сабақ сөздігі');final i=isExam?phase:phase-1;return (isExam?[tx('Проверка знаний','Knowledge check','Білімді тексеру'),tx('Найди пары','Match the pairs','Жұпты тап'),tx('Вставь слово в диалоге','Complete the dialogue','Диалогты толықтыр'),tx('Финальный голосовой экзамен','Final speaking exam','Қорытынды дауыс емтиханы')]:[tx('Как переводится?','What does it mean?','Қалай аударылады?'),tx('Найди пару','Match the pairs','Жұпты тап'),tx('Вставь пропущенное слово','Fill the missing word','Жоғалған сөзді қой'),tx('Повтори по голосовому','Repeat by voice','Дауыспен қайтала')])[i];}
@@ -105,9 +112,47 @@ class _LessonScreenState extends State<LessonScreen>{
  Widget progress(int n,int total)=>Row(children:[Text('$n / $total',style:const TextStyle(color:AppColors.muted)),const SizedBox(width:12),Expanded(child:LinearProgressIndicator(value:n/total,minHeight:7))]);
  Widget trainingBlock(){return Column(children:[...pack.words.map((w)=>Card(child:ListTile(title:Text(w.kk,style:const TextStyle(fontSize:21,fontWeight:FontWeight.w900)),subtitle:Text(w.ru,style:const TextStyle(color:AppColors.muted)),trailing:sound(w.audio)))),const SizedBox(height:12),FilledButton(onPressed:()=>setState(()=>phase=1),child:SizedBox(width:double.infinity,child:Center(child:Text(tx('Начать задания','Start exercises','Тапсырмаларды бастау'))))) ]);}
  Widget translationBlock(){
-   final q=translations[index];final opts=[...q.ru];final order=List.generate(opts.length,(i)=>i)..shuffle(Random(index+(isExam?300:30)));return Column(children:[progress(index+1,translations.length),const SizedBox(height:20),Row(mainAxisAlignment:MainAxisAlignment.center,children:[Flexible(child:Text(q.kk,textAlign:TextAlign.center,style:const TextStyle(fontSize:32,fontWeight:FontWeight.w900))),sound(q.audio)]),const SizedBox(height:10),Text(q.ruPrompt,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),...order.map((i)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(onTap:()=>chooseTranslation(i),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),leading:CircleAvatar(child:Text(String.fromCharCode(65+i))),title:Text(opts[i]))))),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
+   final q=translations[index];
+   final opts=[...q.ru];
+   final order=List.generate(opts.length,(i)=>i)..shuffle(Random(index+(isExam?300:30)));
+   return Column(children:[
+     progress(index+1,translations.length),
+     const SizedBox(height:20),
+     Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+       Flexible(child:Text(q.kk,textAlign:TextAlign.center,style:const TextStyle(fontSize:32,fontWeight:FontWeight.w900))),
+       sound(q.audio),
+     ]),
+     const SizedBox(height:10),
+     Text(q.ruPrompt,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),
+     const SizedBox(height:20),
+     ...order.map((i)=>Padding(
+       padding:const EdgeInsets.only(bottom:10),
+       child:ListTile(onTap:()=>chooseTranslation(i),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),leading:CircleAvatar(child:Text(String.fromCharCode(65+i))),title:Text(opts[i])),
+     )),
+     if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+   ]);
+ }
  Widget matchBlock(){
-   final left=pairs.map((p)=>p.kk).toList();final right=pairs.map((p)=>p.ru).toList()..shuffle(Random(isExam?77:17));return Column(children:[progress(pairDone.length, pairs.length),const SizedBox(height:18),if(pairLeft!=null)Text(tx('Выбрано: $pairLeft — теперь выбери перевод','Selected: $pairLeft — now choose the translation','Таңдалды: $pairLeft — енді аудармасын таңда'),style:const TextStyle(color:AppColors.teal,fontWeight:FontWeight.w800)),const SizedBox(height:12),...left.map((kk)=>Padding(padding:const EdgeInsets.only(bottom:8),child:ListTile(onTap:()=>selectPair(kk),tileColor:pairDone.contains(kk)?AppColors.teal.withValues(alpha:.16):pairLeft==kk?AppColors.teal.withValues(alpha:.22):AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),title:Text(kk),leading:soundIconFor(kk))))),const Divider(height:25),...right.map((ru)=>Padding(padding:const EdgeInsets.only(bottom:8),child:ListTile(onTap:()=>selectPairTranslation(ru),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),title:Text(ru)))),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
+   final left=pairs.map((p)=>p.kk).toList();
+   final right=pairs.map((p)=>p.ru).toList()..shuffle(Random(isExam?77:17));
+   return Column(children:[
+     progress(pairDone.length,pairs.length),
+     const SizedBox(height:18),
+     if(pairLeft!=null)Text(tx('Выбрано: $pairLeft — теперь выбери перевод','Selected: $pairLeft — now choose the translation','Таңдалды: $pairLeft — енді аудармасын таңда'),style:const TextStyle(color:AppColors.teal,fontWeight:FontWeight.w800)),
+     const SizedBox(height:12),
+     ...left.map((kk)=>Padding(
+       padding:const EdgeInsets.only(bottom:8),
+       child:ListTile(onTap:()=>selectPair(kk),tileColor:pairDone.contains(kk)?AppColors.teal.withValues(alpha:.16):pairLeft==kk?AppColors.teal.withValues(alpha:.22):AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),title:Text(kk),leading:soundIconFor(kk)),
+     )),
+     const Divider(height:25),
+     ...right.map((ru)=>Padding(
+       padding:const EdgeInsets.only(bottom:8),
+       child:ListTile(onTap:()=>selectPairTranslation(ru),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16)),title:Text(ru)),
+     )),
+     if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800)),
+   ]);
+ }
+ Widget soundIconFor(String kk){final p=pairs.firstWhere((x)=>x.kk==kk);return sound(p.audio);}
  Widget soundIconFor(String kk){final p=pairs.firstWhere((x)=>x.kk==kk);return sound(p.audio);}
  Widget fillBlock(){
    final q=fills[index];final order=List.generate(q.options.length,(i)=>i)..shuffle(Random(index+90));return Column(children:[progress(index+1,fills.length),const SizedBox(height:20),Row(mainAxisAlignment:MainAxisAlignment.center,children:[Flexible(child:Text(q.sentence,textAlign:TextAlign.center,style:const TextStyle(fontSize:26,fontWeight:FontWeight.w900))),sound(q.audio)]),const SizedBox(height:10),Text(q.ru,textAlign:TextAlign.center,style:const TextStyle(color:AppColors.muted)),const SizedBox(height:20),...order.map((i)=>Padding(padding:const EdgeInsets.only(bottom:10),child:ListTile(onTap:()=>chooseFill(i),tileColor:AppColors.card,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(18)),title:Text(q.options[i],textAlign:TextAlign.center)))),if(feedback.isNotEmpty)Text(feedback,style:const TextStyle(color:AppColors.gold,fontWeight:FontWeight.w800))]);}
