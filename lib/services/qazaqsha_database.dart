@@ -9,7 +9,7 @@ class QazaqshaDatabase {
   Future<Database> get database async {
     if (_db != null) return _db!;
     _db = await openDatabase(
-      p.join(await getDatabasesPath(), 'qazaqsha.db'),
+      p.join(await getDatabasesPath(), 'qazaqsha_progress.db'),
       version: 1,
       onCreate: (db, version) async {
         await db.execute('CREATE TABLE lesson_results (topic TEXT NOT NULL, lesson INTEGER NOT NULL, best_score INTEGER NOT NULL DEFAULT 0, grade INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, PRIMARY KEY(topic, lesson))');
