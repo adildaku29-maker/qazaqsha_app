@@ -9,7 +9,7 @@ class AudioService {
     if (name == 'default') return;
     try {
       await _player.stop();
-      await _player.play(AssetSource('audio/tanisu/$name.mp3'));
+      await _player.play(AssetSource('audio/tanysu/$name.mp3'));
     } catch (_) {
       // Audio files are supplied separately; missing audio must not break the lesson.
     }
