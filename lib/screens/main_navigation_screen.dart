@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/qazaqsha_content.dart';
+import '../data/lesson_content.dart';
 import '../services/storage_service.dart';
 import '../services/user_profile_service.dart';
+import '../services/qazaqsha_database.dart';
 import '../ui/app_text.dart';
 import 'lesson_map_screen.dart';
+import 'lessons_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget{
   const MainNavigationScreen({super.key});
   @override State<MainNavigationScreen> createState()=>_MainNavigationScreenState();
 }
+
 class _MainNavigationScreenState extends State<MainNavigationScreen>{
   int tab=0;
   @override Widget build(BuildContext context)=>FutureBuilder<UserProfile>(
@@ -18,7 +22,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>{
       final p=s.data??const UserProfile(nickname:'',language:'ru',character:'🦅');
       final pages=[
         LessonMapScreen(language:p.language),
-        LessonMapScreen(language:p.language),
+        LessonsScreen(language:p.language),
         _Achievements(language:p.language),
         _Profile(profile:p),
       ];
@@ -38,12 +42,60 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>{
   );
 }
 
-class _Achievements extends StatelessWidget{
-  final String language; const _Achievements({required this.language});
-  @override Widget build(BuildContext context)=>ListView(padding:const EdgeInsets.all(20),children:[
-    Text(AppText.get('achievements',language),style:const TextStyle(fontSize:28,fontWeight:FontWeight.w900)),const SizedBox(height:18),
-    ...achievements.map((a){final k=a.keys.first;return Card(child:ListTile(leading:CircleAvatar(child:Text(k)),title:Text(a[k]!),subtitle:Text(AppText.get('continue',language))));}),
-  ]);
+class _Achievements extends StatefulWidget{
+  final String language;
+  const _Achievements({required this.language});
+  @override State<_Achievements> createState()=>_AchievementsState();
+}
+
+class _AchievementsState extends State<_Achievements>{
+  Map<String,int> stats={};
+  @override void initState(){super.initState();_load();}
+  Future<void> _load()async{
+    stats=await QazaqshaDatabase.instance.stats();
+    if(mounted)setState((){});
+  }
+  String tr(String ru,String en,String kk)=>widget.language=='en'?en:widget.language=='kk'?kk:ru;
+
+  @override Widget build(BuildContext context){
+    final xp=stats['xp']??0,streak=stats['streak']??0,words=stats['words']??0,lessons=stats['lessons']??0;
+    final items=[
+      ('🔥',tr('7 дней подряд','7 day streak','7 күн қатарынан'),streak,7),
+      ('⚡',tr('1000 XP набрать','Earn 1000 XP','1000 XP жина'),xp,1000),
+      ('📚',tr('100 слов выучить','Learn 100 words','100 сөз үйрен'),words,100),
+      ('🎙️',tr('10 уроков пройти','Complete 10 lessons','10 сабақ өт'),lessons,10),
+      ('💬',tr('25 уроков пройти','Complete 25 lessons','25 сабақ өт'),lessons,25),
+      ('🇰🇿',tr('50 уроков пройти','Complete 50 lessons','50 сабақ өт'),lessons,50),
+    ];
+    return RefreshIndicator(
+      onRefresh:_load,
+      child:ListView(padding:const EdgeInsets.fromLTRB(20,20,20,40),children:[
+        Text(tr('Достижения','Achievements','Жетістіктер'),style:const TextStyle(fontSize:30,fontWeight:FontWeight.w900)),
+        const SizedBox(height:6),
+        Text(tr('Твой прогресс обновляется после каждого пройденного урока.','Your progress updates after every completed lesson.','Прогресс әр сабақтан кейін жаңартылады.'),style:const TextStyle(color:AppColors.muted)),
+        const SizedBox(height:22),
+        ...items.map((item){
+          final value=item.$3,target=item.$4;
+          final progress=(value/target).clamp(0.0,1.0);
+          return Container(
+            margin:const EdgeInsets.only(bottom:14),
+            padding:const EdgeInsets.all(18),
+            decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(22)),
+            child:Column(children:[
+              Row(children:[
+                Text(item.$1,style:const TextStyle(fontSize:28)),
+                const SizedBox(width:12),
+                Expanded(child:Text(item.$2,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900))),
+                Text('$value / $target',style:const TextStyle(color:AppColors.muted,fontWeight:FontWeight.w700)),
+              ]),
+              const SizedBox(height:12),
+              ClipRRect(borderRadius:BorderRadius.circular(20),child:LinearProgressIndicator(value:progress,minHeight:9)),
+            ]),
+          );
+        }),
+      ]),
+    );
+  }
 }
 
 class _Profile extends StatelessWidget{
