@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'services/user_profile_service.dart';
+import 'services/content_api_service.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/onboarding_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ContentApiService.instance.warmUp();
   runApp(const QazaqshaApp());
 }
 
