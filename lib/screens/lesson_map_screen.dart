@@ -32,13 +32,40 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
   @override Widget build(BuildContext context)=>Scaffold(
     backgroundColor:AppColors.navy,
     body:Stack(children:[
-      Positioned.fill(child:InteractiveViewer(
-        minScale:.9,maxScale:1.6,boundaryMargin:const EdgeInsets.symmetric(vertical:80,horizontal:20),
-        child:SizedBox(width:430,height:774,child:Stack(children:[
-          Positioned.fill(child:SvgPicture.asset('assets/map/qazaqsha_map.svg',fit:BoxFit.cover,semanticsLabel:'Qazaqsha оқу картасы')),
-          ...List.generate(topics.length > 5 ? 5 : topics.length,_topicNode),
-        ])),
-      )),
+      Positioned.fill(
+        child:LayoutBuilder(
+          builder:(context,constraints){
+            return InteractiveViewer(
+              minScale:.75,
+              maxScale:2.2,
+              alignment:Alignment.topCenter,
+              boundaryMargin:const EdgeInsets.symmetric(vertical:120,horizontal:30),
+              clipBehavior:Clip.hardEdge,
+              child:FittedBox(
+                fit:BoxFit.contain,
+                alignment:Alignment.topCenter,
+                child:SizedBox(
+                  width:430,
+                  height:774,
+                  child:Stack(children:[
+                    Positioned.fill(
+                      child:SvgPicture.asset(
+                        'assets/map/qazaqsha_map.svg',
+                        fit:BoxFit.fill,
+                        semanticsLabel:'Qazaqsha оқу картасы',
+                      ),
+                    ),
+                    ...List.generate(
+                      topics.length > 5 ? 5 : topics.length,
+                      _topicNode,
+                    ),
+                  ]),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
       SafeArea(child:Padding(
         padding:const EdgeInsets.fromLTRB(16,12,16,0),
         child:Row(children:[
