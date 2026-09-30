@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/lessons_data.dart';
@@ -674,5 +674,5 @@ class _MapPathPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MapPathPainter oldDelegate) =>
-      !math.listEquals(oldDelegate.completedLessons, completedLessons);
+      !listEquals(oldDelegate.completedLessons, completedLessons);
 }
