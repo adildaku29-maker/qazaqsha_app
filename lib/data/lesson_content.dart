@@ -1,3 +1,10 @@
+class LessonWord{final String kk,ru,en,audio;const LessonWord(this.kk,this.ru,this.en,this.audio);}
+class TranslationQuestion{final String kk,ruPrompt,enPrompt,audio;final List<String> ru,en;final int correct;const TranslationQuestion(this.kk,this.ruPrompt,this.enPrompt,this.ru,this.en,this.correct,this.audio);}
+class MatchPair{final String kk,ru,en,audio;const MatchPair(this.kk,this.ru,this.en,this.audio);}
+class FillQuestion{final String sentence,ru,en,audio;final List<String> options;final int correct;const FillQuestion(this.sentence,this.ru,this.en,this.options,this.correct,this.audio);}
+class SpeakingPrompt{final String kk,ru,en,audio;const SpeakingPrompt(this.kk,this.ru,this.en,this.audio);}
+class LessonPack{final String topic;final List<LessonWord> words;final List<TranslationQuestion> translations;final List<MatchPair> pairs;final List<FillQuestion> fills;final List<SpeakingPrompt> speaking;const LessonPack(this.topic,this.words,this.translations,this.pairs,this.fills,this.speaking);}
+class ExamPack{final List<TranslationQuestion> translations;final List<MatchPair> pairs;final List<FillQuestion> fills;final List<SpeakingPrompt> speaking;const ExamPack(this.translations,this.pairs,this.fills,this.speaking);}
 class Topic{
   final String title,subtitle,emoji,level;
   final int xp;
