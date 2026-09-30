@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../data/lesson_content.dart';
 import '../services/lesson_database.dart';
 import '../services/qazaqsha_database.dart';
+
 import 'lesson_screen.dart';
 
 class LessonMapScreen extends StatefulWidget {
@@ -36,73 +37,88 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // The map itself always fills the available screen.
-          // FittedBox keeps the SVG and lesson coordinates in the same
-          // 430x774 coordinate system, so nothing gets pushed down.
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: FittedBox(
-              fit: BoxFit.cover,
-              alignment: Alignment.bottomCenter,
-              child: SizedBox(
-                width: 430,
-                height: 774,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    SvgPicture.asset(
-                      'assets/map/qazaqsha_map.svg',
-                      fit: BoxFit.fill,
-                      semanticsLabel: 'Qazaqsha оқу картасы',
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final topSafe = MediaQuery.of(context).padding.top;
+                return Padding(
+                  padding: EdgeInsets.only(top: topSafe + 56),
+                  child: ClipRect(
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      alignment: Alignment.bottomCenter,
+                      child: SizedBox(
+                        width: 430,
+                        height: 774,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/map/qazaqsha_map.svg',
+                              fit: BoxFit.fill,
+                            ),
+                            CustomPaint(
+                              painter: _LearningPathPainter(_positions),
+                            ),
+                            ...List.generate(
+                              topics.length > _positions.length
+                                  ? _positions.length
+                                  : topics.length,
+                              _topicNode,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    CustomPaint(painter: _LearningPathPainter(_positions)),
-                    ...List.generate(
-                      topics.length > _positions.length ? _positions.length : topics.length,
-                      _topicNode,
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+                child: Row(
+                  children: [
+                    _glass(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🔥', style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 7),
+                          Text(
+                            '$streak ${tr('күн қатарынан', 'day streak', 'күн қатарынан')}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    _glass(
+                      padding: const EdgeInsets.all(11),
+                      child: const Icon(
+                        Icons.map_rounded,
+                        color: AppColors.teal,
+                        size: 22,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-
-          // Clean top HUD. It floats above the map and never changes
-          // the map's layout height.
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _glass(
-                      child: Row(
-                        children: [
-                          const Text('🔥', style: TextStyle(fontSize: 23)),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$streak ${tr('күн қатарынан', 'day streak', 'күн қатарынан')}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _glass(
-                    child: const Icon(
-                      Icons.map_rounded,
-                      color: AppColors.teal,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
         ],
       ),
     );
@@ -139,14 +155,12 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
 
   // Wide zig-zag route: every lesson has its own visual zone.
   static const _positions=<Offset>[
-    Offset(215,700),
-    Offset(105,590),
-    Offset(300,500),
-    Offset(125,405),
-    Offset(305,315),
-    Offset(135,225),
-    Offset(295,145),
-    Offset(145,82),
+    Offset(215,690),
+    Offset(105,565),
+    Offset(315,445),
+    Offset(115,325),
+    Offset(300,205),
+    Offset(140,105),
   ];
 }
 
