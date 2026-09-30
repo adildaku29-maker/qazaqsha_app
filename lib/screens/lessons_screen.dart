@@ -19,9 +19,11 @@ class _LessonsScreenState extends State<LessonsScreen>{
   }
   int grade(String topic,int n)=>grades['${topic}_u$n']??0;
   bool unlocked(int ti,int lesson){
-    if(ti==0&&lesson==1)return true;
-    if(lesson>1)return grade(topics[ti].title,lesson-1)>=3;
-    return grade(topics[ti-1].title,lessonCountFor(topics[ti-1].title))>=3;
+    final topic=topics[ti];
+    if(lesson>1)return grade(topic.title,lesson-1)>=3;
+    final required=topic.requiredAfter;
+    if(required==null)return ti==0;
+    return grade(required,lessonCountFor(required))>=3;
   }
   String tr(String ru,String en,String kk)=>widget.language=='en'?en:widget.language=='kk'?kk:ru;
 
