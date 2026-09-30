@@ -12,6 +12,57 @@ class LessonMapScreen extends StatefulWidget {
   @override State<LessonMapScreen> createState() => _LessonMapScreenState();
 }
 
+class _LearningPathPainter extends CustomPainter {
+  final List<Offset> points;
+  const _LearningPathPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+
+    final shadow = Paint()
+      ..color = Colors.black.withValues(alpha: .24)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16
+      ..strokeCap = StrokeCap.round;
+
+    final outer = Paint()
+      ..color = Colors.white.withValues(alpha: .68)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..strokeCap = StrokeCap.round;
+
+    final inner = Paint()
+      ..color = AppColors.gold.withValues(alpha: .78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final dx = (b.dx - a.dx) * .45;
+      final dy = (b.dy - a.dy) * .45;
+      path.cubicTo(
+        a.dx + dx,
+        a.dy + dy * .35,
+        b.dx - dx,
+        b.dy - dy * .35,
+        b.dx,
+        b.dy,
+      );
+    }
+
+    canvas.drawPath(path, shadow);
+    canvas.drawPath(path, outer);
+    canvas.drawPath(path, inner);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LearningPathPainter oldDelegate) => false;
+}
+
 class _LessonMapScreenState extends State<LessonMapScreen> {
   Map<String,int> grades={};
   int streak=0;
@@ -55,10 +106,9 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
                       fit: BoxFit.fill,
                       semanticsLabel: 'Qazaqsha оқу картасы',
                     ),
+                    CustomPaint(painter: _LearningPathPainter(_positions)),
                     ...List.generate(
-                      topics.length > _positions.length
-                          ? _positions.length
-                          : topics.length,
+                      topics.length > _positions.length ? _positions.length : topics.length,
                       _topicNode,
                     ),
                   ],
@@ -155,7 +205,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
 
   Widget _topicNode(int index){
     final t=topics[index],open=unlocked(index),passed=grade(t.title,lessonCountFor(t.title))>=3;
-    final p=_positions[index%_positions.length];
+    final p=_positions[index];
     return Positioned(left:p.dx-31,top:p.dy-31,child:GestureDetector(
       onTap:open?()=>_openTopic(index):null,
       child:AnimatedContainer(duration:const Duration(milliseconds:220),width:62,height:62,
@@ -176,12 +226,15 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
     _load();
   }
 
+  // Wide zig-zag route: every lesson has its own visual zone.
   static const _positions=<Offset>[
-    Offset(215,676), // Танысу / двор
-    Offset(309,112), // Үй
-    Offset(128,264), // Мектеп
-    Offset(108,430), // Тамақ
-    Offset(365,260), // Денсаулық
-    Offset(330,540),Offset(250,600),Offset(365,620),Offset(175,560),Offset(335,430),Offset(185,360),Offset(335,430),Offset(185,360),
+    Offset(215,700),
+    Offset(105,590),
+    Offset(300,500),
+    Offset(125,405),
+    Offset(305,315),
+    Offset(135,225),
+    Offset(295,145),
+    Offset(145,82),
   ];
 }
