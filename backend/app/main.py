@@ -257,7 +257,14 @@ def delete_question(qid:int,_:AdminUser=Depends(admin_required),session:Session=
 @app.get("/api/admin/users")
 def admin_users(_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
     users=session.query(User).order_by(User.last_seen_at.desc()).all()
-    return [{"id":u.id,"nickname":u.nickname,"age":u.age,"language":u.language,"goal":u.goal,"last_seen_at":u.last_seen_at.isoformat(),"passed_stages":sum(1 for p in session.query(Progress).filter_by(user_id=u.id).all() if p.grade>=3)} for u in users]
+    out=[]
+    for u in users:
+        progress=[]
+        for p in session.query(Progress).filter_by(user_id=u.id).order_by(Progress.topic_id,Progress.lesson_number):
+            topic=session.get(Topic,p.topic_id)
+            progress.append({"topic":topic.title if topic else "", "lesson":p.lesson_number, "grade":p.grade, "score":p.best_score})
+        out.append({"id":u.id,"nickname":u.nickname,"age":u.age,"language":u.language,"goal":u.goal,"last_seen_at":u.last_seen_at.isoformat(),"passed_stages":sum(1 for p in progress if p["grade"]>=3),"progress":progress})
+    return out
 
 @app.get("/admin",response_class=HTMLResponse)
 def admin_page():
