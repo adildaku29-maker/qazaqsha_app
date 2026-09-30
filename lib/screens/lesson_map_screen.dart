@@ -12,57 +12,6 @@ class LessonMapScreen extends StatefulWidget {
   @override State<LessonMapScreen> createState() => _LessonMapScreenState();
 }
 
-class _LearningPathPainter extends CustomPainter {
-  final List<Offset> points;
-  const _LearningPathPainter(this.points);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: .24)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 16
-      ..strokeCap = StrokeCap.round;
-
-    final outer = Paint()
-      ..color = Colors.white.withValues(alpha: .68)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 11
-      ..strokeCap = StrokeCap.round;
-
-    final inner = Paint()
-      ..color = AppColors.gold.withValues(alpha: .78)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 0; i < points.length - 1; i++) {
-      final a = points[i];
-      final b = points[i + 1];
-      final dx = (b.dx - a.dx) * .45;
-      final dy = (b.dy - a.dy) * .45;
-      path.cubicTo(
-        a.dx + dx,
-        a.dy + dy * .35,
-        b.dx - dx,
-        b.dy - dy * .35,
-        b.dx,
-        b.dy,
-      );
-    }
-
-    canvas.drawPath(path, shadow);
-    canvas.drawPath(path, outer);
-    canvas.drawPath(path, inner);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LearningPathPainter oldDelegate) => false;
-}
-
 class _LessonMapScreenState extends State<LessonMapScreen> {
   Map<String,int> grades={};
   int streak=0;
@@ -154,44 +103,6 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
             ),
           ),
 
-          // Small instruction card, positioned above the navigation bar.
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 14,
-            child: SafeArea(
-              top: false,
-              child: _glass(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.touch_app_rounded,
-                      color: AppColors.teal,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        tr(
-                          'Басыңыз — сабақты бастаңыз және жаңа жолдарды ашыңыз.',
-                          'Tap a location to start a lesson and unlock new paths.',
-                          'Локацияны басып, сабақты бастаңыз және жаңа жолдарды ашыңыз.',
-                        ),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -237,4 +148,55 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
     Offset(295,145),
     Offset(145,82),
   ];
+}
+
+class _LearningPathPainter extends CustomPainter {
+  final List<Offset> points;
+  const _LearningPathPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+
+    final shadow = Paint()
+      ..color = Colors.black.withValues(alpha: .24)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16
+      ..strokeCap = StrokeCap.round;
+
+    final outer = Paint()
+      ..color = Colors.white.withValues(alpha: .68)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..strokeCap = StrokeCap.round;
+
+    final inner = Paint()
+      ..color = AppColors.gold.withValues(alpha: .78)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final a = points[i];
+      final b = points[i + 1];
+      final dx = (b.dx - a.dx) * .45;
+      final dy = (b.dy - a.dy) * .45;
+      path.cubicTo(
+        a.dx + dx,
+        a.dy + dy * .35,
+        b.dx - dx,
+        b.dy - dy * .35,
+        b.dx,
+        b.dy,
+      );
+    }
+
+    canvas.drawPath(path, shadow);
+    canvas.drawPath(path, outer);
+    canvas.drawPath(path, inner);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LearningPathPainter oldDelegate) => false;
 }
