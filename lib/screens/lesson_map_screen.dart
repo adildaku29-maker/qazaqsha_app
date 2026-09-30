@@ -52,19 +52,27 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
                   child:SizedBox(
                     width:mapW,
                     height:mapH,
-                    child:Stack(
-                      fit:StackFit.expand,
-                      children:[
-                        SvgPicture.asset(
-                          'assets/map/qazaqsha_map.svg',
-                          fit:BoxFit.fill,
-                          semanticsLabel:'Qazaqsha оқу картасы',
+                    child:Transform.scale(
+                      alignment:Alignment.topLeft,
+                      scale:mapW/430,
+                      child:SizedBox(
+                        width:430,
+                        height:774,
+                        child:Stack(
+                          fit:StackFit.expand,
+                          children:[
+                            SvgPicture.asset(
+                              'assets/map/qazaqsha_map.svg',
+                              fit:BoxFit.fill,
+                              semanticsLabel:'Qazaqsha оқу картасы',
+                            ),
+                            ...List.generate(
+                              topics.length>5?5:topics.length,
+                              _topicNode,
+                            ),
+                          ],
                         ),
-                        ...List.generate(
-                          topics.length>5?5:topics.length,
-                          _topicNode,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
