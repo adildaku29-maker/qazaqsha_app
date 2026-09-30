@@ -29,110 +29,120 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
   }
   String tr(String ru,String en,String kk)=>widget.language=='en'?en:widget.language=='kk'?kk:ru;
 
-  @override Widget build(BuildContext context){
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color:AppColors.navy,
-      child:LayoutBuilder(
-        builder:(context,constraints){
-          final maxW=constraints.maxWidth;
-          final maxH=constraints.maxHeight;
-          final mapH=(maxW/1000*1800).clamp(0.0,maxH);
-          final mapW=mapH/1800*1000;
-          return Stack(
-            fit:StackFit.expand,
-            children:[
-              Align(
-                alignment:Alignment.bottomCenter,
-                child:InteractiveViewer(
-                  constrained:false,
-                  minScale:.85,
-                  maxScale:2.0,
-                  boundaryMargin:const EdgeInsets.all(100),
-                  clipBehavior:Clip.hardEdge,
-                  child:SizedBox(
-                    width:mapW,
-                    height:mapH,
-                    child:Transform.scale(
-                      alignment:Alignment.topLeft,
-                      scale:mapW/430,
-                      child:SizedBox(
-                        width:430,
-                        height:774,
-                        child:Stack(
-                          fit:StackFit.expand,
-                          children:[
-                            SvgPicture.asset(
-                              'assets/map/qazaqsha_map.svg',
-                              fit:BoxFit.fill,
-                              semanticsLabel:'Qazaqsha оқу картасы',
+      color: AppColors.navy,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // The map itself always fills the available screen.
+          // FittedBox keeps the SVG and lesson coordinates in the same
+          // 430x774 coordinate system, so nothing gets pushed down.
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: FittedBox(
+              fit: BoxFit.cover,
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                width: 430,
+                height: 774,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/map/qazaqsha_map.svg',
+                      fit: BoxFit.fill,
+                      semanticsLabel: 'Qazaqsha оқу картасы',
+                    ),
+                    ...List.generate(
+                      topics.length > _positions.length
+                          ? _positions.length
+                          : topics.length,
+                      _topicNode,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Clean top HUD. It floats above the map and never changes
+          // the map's layout height.
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _glass(
+                      child: Row(
+                        children: [
+                          const Text('🔥', style: TextStyle(fontSize: 23)),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$streak ${tr('күн қатарынан', 'day streak', 'күн қатарынан')}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
                             ),
-                            ...List.generate(
-                              topics.length>5?5:topics.length,
-                              _topicNode,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-              ),
-              SafeArea(
-                bottom:false,
-                child:Padding(
-                  padding:const EdgeInsets.fromLTRB(16,12,16,0),
-                  child:Row(
-                    children:[
-                      Expanded(
-                        child:_glass(
-                          child:Row(
-                            children:[
-                              const Text('🔥',style:TextStyle(fontSize:24)),
-                              const SizedBox(width:8),
-                              Text(
-                                '$streak ${tr('день подряд','day streak','күн қатарынан')}',
-                                style:const TextStyle(fontWeight:FontWeight.w900),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width:10),
-                      _glass(child:const Icon(Icons.map_rounded,color:AppColors.teal)),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                left:16,
-                right:16,
-                bottom:16,
-                child:SafeArea(
-                  top:false,
-                  child:_glass(
-                    padding:const EdgeInsets.symmetric(horizontal:16,vertical:12),
-                    child:Row(
-                      children:[
-                        const Icon(Icons.touch_app_rounded,color:AppColors.teal),
-                        const SizedBox(width:10),
-                        Expanded(
-                          child:Text(
-                            tr(
-                              'Нажимай на локации — проходи уроки и открывай новые ветки.',
-                              'Tap a location, complete lessons and unlock new branches.',
-                              'Локацияны таңдап, сабақтарды өтіп, жаңа жолдарды аш.',
-                            ),
-                            style:const TextStyle(fontSize:12,color:AppColors.muted),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(width: 10),
+                  _glass(
+                    child: const Icon(
+                      Icons.map_rounded,
+                      color: AppColors.teal,
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          // Small instruction card, positioned above the navigation bar.
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 14,
+            child: SafeArea(
+              top: false,
+              child: _glass(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.touch_app_rounded,
+                      color: AppColors.teal,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        tr(
+                          'Басыңыз — сабақты бастаңыз және жаңа жолдарды ашыңыз.',
+                          'Tap a location to start a lesson and unlock new paths.',
+                          'Локацияны басып, сабақты бастаңыз және жаңа жолдарды ашыңыз.',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
