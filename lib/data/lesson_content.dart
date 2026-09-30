@@ -1,13 +1,25 @@
-class LessonWord{final String kk,ru,en,audio;const LessonWord(this.kk,this.ru,this.en,this.audio);}
-class TranslationQuestion{final String kk,ruPrompt,enPrompt,audio;final List<String> ru,en;final int correct;const TranslationQuestion(this.kk,this.ruPrompt,this.enPrompt,this.ru,this.en,this.correct,this.audio);}
-class MatchPair{final String kk,ru,en,audio;const MatchPair(this.kk,this.ru,this.en,this.audio);}
-class FillQuestion{final String sentence,ru,en,audio;final List<String> options;final int correct;const FillQuestion(this.sentence,this.ru,this.en,this.options,this.correct,this.audio);}
-class SpeakingPrompt{final String kk,ru,en,audio;const SpeakingPrompt(this.kk,this.ru,this.en,this.audio);}
-class LessonPack{final String topic;final List<LessonWord> words;final List<TranslationQuestion> translations;final List<MatchPair> pairs;final List<FillQuestion> fills;final List<SpeakingPrompt> speaking;const LessonPack(this.topic,this.words,this.translations,this.pairs,this.fills,this.speaking);}
-class ExamPack{final List<TranslationQuestion> translations;final List<MatchPair> pairs;final List<FillQuestion> fills;final List<SpeakingPrompt> speaking;const ExamPack(this.translations,this.pairs,this.fills,this.speaking);}
-class Topic{final String title,subtitle,emoji,level;final int xp;final List<String> words;const Topic(this.title,this.subtitle,this.emoji,this.level,this.xp,this.words);}
+class Topic{
+  final String title,subtitle,emoji,level;
+  final int xp;
+  final List<String> words;
+  final String? requiredAfter;
+  const Topic(this.title,this.subtitle,this.emoji,this.level,this.xp,this.words,{this.requiredAfter});
+}
 const topics=<Topic>[
-Topic('Танысу','Өзіңді таныстыру','👋','A1',80,['сәлем','аты','жас','қала','танысу']),Topic('Отбасы','Жақындарың туралы','👨‍👩‍👧','A1',90,['отбасы','ана','әке','аға','әпке']),Topic('Үй','Үйің және бөлмелер','🏠','A1',90,['үй','бөлме','асүй','есік','терезе']),Topic('Тамақ','Тағам және сусындар','🍲','A1',100,['тамақ','су','ет','нан','шай']),Topic('Күнделікті өмір','Күн тәртібі','☀️','A1',100,['таңертең','жұмыс','күн','кеш','ұйқы']),Topic('Дүкен','Сатып алу','🛍️','A2',120,['баға','ақша','сатып алу','арзан','қымбат']),Topic('Мейрамхана','Мейрамханада сөйлесу','🍽️','A2',120,['мәзір','тапсырыс','есеп','дәмді','даяшы']),Topic('Достар','Достық туралы','🤝','A2',120,['дос','кездесу','әңгіме','көңіл','бірге']),Topic('Жұмыс','Жұмыс және мамандық','💼','A2',140,['жұмыс','әріптес','кеңсе','жоба','басшы']),Topic('Саяхат','Саяхат және жол','✈️','B1',160,['саяхат','әуежай','қонақүй','билет','бағыт']),Topic('Қазақстан','Ел туралы сөйлесу','🇰🇿','B1',180,['Қазақстан','Астана','дәстүр','мәдениет','тарих'])];
+  Topic('Танысу','Өзіңді таныстыру','👋','A1',80,['сәлем','аты','жас','қала','танысу']),
+  Topic('Үй','Үйің және бөлмелер','🏠','A1',90,['үй','бөлме','асүй','есік','терезе'],requiredAfter:'Танысу'),
+  Topic('Мектеп','Мектептегі сөздер','🏫','A1',90,['мектеп','сабақ','мұғалім','оқушы','дәптер'],requiredAfter:'Үй'),
+  Topic('Тамақ','Мейрамхана және тағам','🍲','A1',100,['тамақ','су','ет','нан','шай'],requiredAfter:'Үй'),
+  Topic('Денсаулық','Дәрігер және денсаулық','🏥','A1',100,['дәрігер','аурухана','дәрі','ауырсыну','денсаулық'],requiredAfter:'Үй'),
+  Topic('Отбасы','Жақындарың туралы','👨‍👩‍👧','A1',90,['отбасы','ана','әке','аға','әпке'],requiredAfter:'Мектеп'),
+  Topic('Күнделікті өмір','Күн тәртібі','☀️','A1',100,['таңертең','жұмыс','күн','кеш','ұйқы'],requiredAfter:'Тамақ'),
+  Topic('Дүкен','Сатып алу','🛍️','A2',120,['баға','ақша','сатып алу','арзан','қымбат'],requiredAfter:'Тамақ'),
+  Topic('Мейрамхана','Мейрамханада сөйлесу','🍽️','A2',120,['мәзір','тапсырыс','есеп','дәмді','даяшы'],requiredAfter:'Дүкен'),
+  Topic('Достар','Достық туралы','🤝','A2',120,['дос','кездесу','әңгіме','көңіл','бірге'],requiredAfter:'Отбасы'),
+  Topic('Жұмыс','Жұмыс және мамандық','💼','A2',140,['жұмыс','әріптес','кеңсе','жоба','басшы'],requiredAfter:'Күнделікті өмір'),
+  Topic('Саяхат','Саяхат және жол','✈️','B1',160,['саяхат','әуежай','қонақүй','билет','бағыт'],requiredAfter:'Мейрамхана'),
+  Topic('Қазақстан','Ел туралы сөйлесу','🇰🇿','B1',180,['Қазақстан','Астана','дәстүр','мәдениет','тарих'],requiredAfter:'Саяхат'),
+];
 LessonWord w(String kk,String ru,String en,String a)=>LessonWord(kk,ru,en,a);
 TranslationQuestion tq(String kk,String ru,List<String> o,int c,String a)=>TranslationQuestion(kk,ru,ru,o,o,c,a);
 FillQuestion fq(String s,String ru,List<String> o,int c,String a)=>FillQuestion(s,ru,ru,o,c,a);
