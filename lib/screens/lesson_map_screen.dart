@@ -29,60 +29,105 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
   }
   String tr(String ru,String en,String kk)=>widget.language=='en'?en:widget.language=='kk'?kk:ru;
 
-  @override Widget build(BuildContext context)=>Scaffold(
-    backgroundColor:AppColors.navy,
-    body:Stack(children:[
-      Positioned(
-        left:0,
-        right:0,
-        bottom:0,
-        height:774,
-        child:Center(
-          child:InteractiveViewer(
-            minScale:.75,
-            maxScale:2.2,
-            boundaryMargin:const EdgeInsets.all(120),
-            clipBehavior:Clip.hardEdge,
-            child:SizedBox(
-              width:430,
-              height:774,
-              child:Stack(children:[
-                Positioned.fill(
-                  child:SvgPicture.asset(
-                    'assets/map/qazaqsha_map.svg',
-                    fit:BoxFit.fill,
-                    semanticsLabel:'Qazaqsha оқу картасы',
+  @override Widget build(BuildContext context){
+    return Container(
+      color:AppColors.navy,
+      child:LayoutBuilder(
+        builder:(context,constraints){
+          final maxW=constraints.maxWidth;
+          final maxH=constraints.maxHeight;
+          final mapH=(maxW/1000*1800).clamp(0.0,maxH);
+          final mapW=mapH/1800*1000;
+          return Stack(
+            fit:StackFit.expand,
+            children:[
+              Align(
+                alignment:Alignment.bottomCenter,
+                child:InteractiveViewer(
+                  constrained:false,
+                  minScale:.85,
+                  maxScale:2.0,
+                  boundaryMargin:const EdgeInsets.all(100),
+                  clipBehavior:Clip.hardEdge,
+                  child:SizedBox(
+                    width:mapW,
+                    height:mapH,
+                    child:Stack(
+                      fit:StackFit.expand,
+                      children:[
+                        SvgPicture.asset(
+                          'assets/map/qazaqsha_map.svg',
+                          fit:BoxFit.fill,
+                          semanticsLabel:'Qazaqsha оқу картасы',
+                        ),
+                        ...List.generate(
+                          topics.length>5?5:topics.length,
+                          _topicNode,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                ...List.generate(
-                  topics.length > 5 ? 5 : topics.length,
-                  _topicNode,
+              ),
+              SafeArea(
+                bottom:false,
+                child:Padding(
+                  padding:const EdgeInsets.fromLTRB(16,12,16,0),
+                  child:Row(
+                    children:[
+                      Expanded(
+                        child:_glass(
+                          child:Row(
+                            children:[
+                              const Text('🔥',style:TextStyle(fontSize:24)),
+                              const SizedBox(width:8),
+                              Text(
+                                '$streak ${tr('день подряд','day streak','күн қатарынан')}',
+                                style:const TextStyle(fontWeight:FontWeight.w900),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width:10),
+                      _glass(child:const Icon(Icons.map_rounded,color:AppColors.teal)),
+                    ],
+                  ),
                 ),
-              ]),
-            ),
-          ),
-        ),
+              ),
+              Positioned(
+                left:16,
+                right:16,
+                bottom:16,
+                child:SafeArea(
+                  top:false,
+                  child:_glass(
+                    padding:const EdgeInsets.symmetric(horizontal:16,vertical:12),
+                    child:Row(
+                      children:[
+                        const Icon(Icons.touch_app_rounded,color:AppColors.teal),
+                        const SizedBox(width:10),
+                        Expanded(
+                          child:Text(
+                            tr(
+                              'Нажимай на локации — проходи уроки и открывай новые ветки.',
+                              'Tap a location, complete lessons and unlock new branches.',
+                              'Локацияны таңдап, сабақтарды өтіп, жаңа жолдарды аш.',
+                            ),
+                            style:const TextStyle(fontSize:12,color:AppColors.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
-      SafeArea(child:Padding(
-        padding:const EdgeInsets.fromLTRB(16,12,16,0),
-        child:Row(children:[
-          Expanded(child:_glass(child:Row(children:[
-            const Text('🔥',style:TextStyle(fontSize:24)),const SizedBox(width:8),
-            Text('$streak ${tr('день подряд','day streak','күн қатарынан')}',style:const TextStyle(fontWeight:FontWeight.w900)),
-          ]))),
-          const SizedBox(width:10),
-          _glass(child:const Icon(Icons.map_rounded,color:AppColors.teal)),
-        ]),
-      )),
-      Positioned(left:16,right:16,bottom:14,child:_glass(
-        padding:const EdgeInsets.symmetric(horizontal:16,vertical:12),
-        child:Row(children:[
-          const Icon(Icons.swipe_rounded,color:AppColors.teal),const SizedBox(width:10),
-          Expanded(child:Text(tr('Нажимай на локации — проходи уроки и открывай новые ветки.','Tap a location, complete lessons and unlock new branches.','Локацияны таңдап, сабақтарды өтіп, жаңа жолдарды аш.'),style:const TextStyle(fontSize:12,color:AppColors.muted))),
-        ]),
-      )),
-    ]),
-  );
+    );
+  }
 
   Widget _glass({required Widget child,EdgeInsetsGeometry? padding})=>Container(
     padding:padding??const EdgeInsets.all(12),
