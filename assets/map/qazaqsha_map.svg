@@ -1,91 +1,135 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 1160">
 <defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#17384a"/><stop offset=".5" stop-color="#102c3e"/><stop offset="1" stop-color="#071522"/></linearGradient>
-  <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#244b45"/><stop offset="1" stop-color="#163b3a"/></linearGradient>
-  <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity=".28"/></filter>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#8cc7df"/><stop offset=".42" stop-color="#b9dca7"/><stop offset="1" stop-color="#6ca56b"/>
+  </linearGradient>
+  <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#8fbd72"/><stop offset="1" stop-color="#4e8757"/>
+  </linearGradient>
+  <linearGradient id="water" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#73c9df"/><stop offset=".55" stop-color="#3d9fc1"/><stop offset="1" stop-color="#287ea8"/>
+  </linearGradient>
+  <linearGradient id="road" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#d9bd82"/><stop offset="1" stop-color="#a88457"/>
+  </linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+    <feDropShadow dx="0" dy="6" stdDeviation="6" flood-opacity=".28"/>
+  </filter>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="180%">
+    <feGaussianBlur stdDeviation="10"/>
+  </filter>
 </defs>
 
-<rect width="430" height="1160" fill="url(#bg)"/>
-<!-- subtle terrain -->
-<path d="M0 0H430V180C350 140 290 205 210 170S70 155 0 205Z" fill="#1b414d" opacity=".55"/>
-<path d="M0 970C90 920 155 990 220 950S350 925 430 970V1160H0Z" fill="url(#ground)" opacity=".75"/>
-<g fill="none" stroke="#3b6260" stroke-width="2" opacity=".35">
-  <path d="M-30 250C100 190 170 290 300 220S470 230 470 230"/>
-  <path d="M-20 500C90 440 180 540 290 470S470 480 470 480"/>
-  <path d="M-20 760C100 700 170 810 310 735S470 750 470 750"/>
+<!-- NATURAL MAP -->
+<rect width="430" height="1160" fill="url(#grass)"/>
+<path d="M0 0H430V260C350 210 310 270 235 235S85 250 0 185Z" fill="#9bd0df" opacity=".72"/>
+<path d="M0 190C75 155 120 215 190 190S325 145 430 215V0H0Z" fill="url(#sky)" opacity=".72"/>
+
+<!-- hills -->
+<path d="M0 300Q55 240 110 300T220 295T330 300T430 270V0H0Z" fill="#77a968" opacity=".35"/>
+<path d="M0 1080Q80 1000 150 1055T290 1030T430 1065V1160H0Z" fill="#3e7650" opacity=".45"/>
+
+<!-- river -->
+<path d="M405 -20 C350 100 390 205 320 295 C255 380 300 455 225 535 C150 615 185 710 105 790 C35 860 70 965 15 1035 L-20 1090 L-20 1160 L55 1160 C115 1060 95 970 155 895 C225 810 205 715 280 630 C350 550 300 455 370 365 C430 285 390 170 445 60Z"
+      fill="url(#water)" stroke="#d5f3f6" stroke-width="4" opacity=".94"/>
+<path d="M395 20C350 130 375 205 310 300S285 470 215 545S175 710 95 805S75 965 25 1040"
+      fill="none" stroke="#b9edf2" stroke-width="5" opacity=".55"/>
+
+<!-- small islands / clearings -->
+<g fill="#a9c77d" opacity=".72">
+ <ellipse cx="105" cy="835" rx="76" ry="42"/><ellipse cx="320" cy="635" rx="77" ry="43"/>
+ <ellipse cx="110" cy="435" rx="76" ry="42"/><ellipse cx="300" cy="235" rx="78" ry="43"/>
+ <ellipse cx="215" cy="1035" rx="90" ry="46"/>
 </g>
 
-<!-- destination islands / yards -->
+<!-- ADVENTURE TRAIL -->
+<path d="M215 1035 C205 950 125 930 105 835 S220 700 320 635 S190 515 110 435 S205 310 300 235"
+      fill="none" stroke="#725638" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" opacity=".65"/>
+<path d="M215 1035 C205 950 125 930 105 835 S220 700 320 635 S190 515 110 435 S205 310 300 235"
+      fill="none" stroke="url(#road)" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M215 1035 C205 950 125 930 105 835 S220 700 320 635 S190 515 110 435 S205 310 300 235"
+      fill="none" stroke="#ecd69f" stroke-width="3" stroke-dasharray="3 15" stroke-linecap="round" opacity=".8"/>
+
+<!-- BRIDGES -->
 <g filter="url(#shadow)">
-  <ellipse cx="215" cy="1035" rx="115" ry="45" fill="#0b1f2d" opacity=".75"/>
-  <ellipse cx="105" cy="835" rx="88" ry="34" fill="#0b1f2d" opacity=".75"/>
-  <ellipse cx="320" cy="635" rx="88" ry="34" fill="#0b1f2d" opacity=".75"/>
-  <ellipse cx="110" cy="435" rx="88" ry="34" fill="#0b1f2d" opacity=".75"/>
-  <ellipse cx="300" cy="235" rx="88" ry="34" fill="#0b1f2d" opacity=".75"/>
+ <g transform="translate(155 755) rotate(-18)">
+  <rect x="0" y="0" width="75" height="22" rx="6" fill="#765034"/>
+  <path d="M10 0V22M28 0V22M46 0V22M64 0V22" stroke="#c79555" stroke-width="5"/>
+ </g>
+ <g transform="translate(250 420) rotate(18)">
+  <rect x="0" y="0" width="70" height="22" rx="6" fill="#765034"/>
+  <path d="M10 0V22M27 0V22M44 0V22M61 0V22" stroke="#c79555" stroke-width="5"/>
+ </g>
+</g>
+
+<!-- TREES -->
+<g filter="url(#shadow)">
+ <g transform="translate(25 315)"><rect x="17" y="34" width="8" height="25" fill="#704b32"/><circle cx="21" cy="26" r="24" fill="#34724d"/><circle cx="8" cy="35" r="15" fill="#43835a"/><circle cx="35" cy="37" r="15" fill="#43835a"/></g>
+ <g transform="translate(350 785)"><rect x="17" y="34" width="8" height="25" fill="#704b32"/><circle cx="21" cy="26" r="24" fill="#34724d"/><circle cx="8" cy="35" r="15" fill="#43835a"/><circle cx="35" cy="37" r="15" fill="#43835a"/></g>
+ <g transform="translate(30 930)"><rect x="17" y="34" width="8" height="25" fill="#704b32"/><circle cx="21" cy="26" r="24" fill="#34724d"/><circle cx="8" cy="35" r="15" fill="#43835a"/><circle cx="35" cy="37" r="15" fill="#43835a"/></g>
+ <g transform="translate(365 300)"><rect x="17" y="34" width="8" height="25" fill="#704b32"/><circle cx="21" cy="26" r="24" fill="#34724d"/><circle cx="8" cy="35" r="15" fill="#43835a"/><circle cx="35" cy="37" r="15" fill="#43835a"/></g>
+</g>
+
+<!-- FLOWERS / STONES -->
+<g fill="#f6d37a">
+ <circle cx="62" cy="705" r="3"/><circle cx="78" cy="720" r="3"/><circle cx="348" cy="520" r="3"/><circle cx="365" cy="535" r="3"/>
+ <circle cx="190" cy="290" r="3"/><circle cx="205" cy="305" r="3"/>
+</g>
+<g fill="#718c80" opacity=".75">
+ <ellipse cx="52" cy="575" rx="10" ry="6"/><ellipse cx="375" cy="925" rx="12" ry="7"/>
+ <ellipse cx="335" cy="110" rx="11" ry="7"/><ellipse cx="75" cy="180" rx="9" ry="6"/>
 </g>
 
 <!-- HOME -->
-<g transform="translate(62 780)" filter="url(#shadow)">
-  <path d="M0 48L43 8L86 48V104H0Z" fill="#d9a95d" stroke="#f1d18b" stroke-width="3"/>
-  <path d="M-7 49L43 0L93 49L86 55L43 17L0 55Z" fill="#8c4e49"/>
-  <rect x="15" y="60" width="18" height="20" rx="2" fill="#83b9c0"/>
-  <rect x="53" y="60" width="18" height="20" rx="2" fill="#83b9c0"/>
-  <rect x="37" y="73" width="13" height="31" fill="#704a3a"/>
+<g transform="translate(62 775)" filter="url(#shadow)">
+ <ellipse cx="43" cy="108" rx="57" ry="12" fill="#3b6546" opacity=".5"/>
+ <path d="M0 48L43 8L86 48V104H0Z" fill="#d8a35e" stroke="#f1d18b" stroke-width="3"/>
+ <path d="M-7 49L43 0L93 49L86 55L43 17L0 55Z" fill="#8d4f47"/>
+ <rect x="14" y="59" width="18" height="20" rx="2" fill="#86c3ca"/>
+ <rect x="54" y="59" width="18" height="20" rx="2" fill="#86c3ca"/>
+ <rect x="37" y="72" width="13" height="32" fill="#704a3a"/>
 </g>
 
 <!-- HOSPITAL -->
 <g transform="translate(277 575)" filter="url(#shadow)">
-  <rect x="0" y="30" width="86" height="75" rx="6" fill="#e5edf0" stroke="#9dc2c8" stroke-width="3"/>
-  <rect x="30" y="8" width="26" height="97" rx="4" fill="#e5edf0" stroke="#9dc2c8" stroke-width="3"/>
-  <path d="M43 31V61M28 46H58" stroke="#d85f65" stroke-width="10" stroke-linecap="round"/>
-  <rect x="11" y="57" width="15" height="18" fill="#84b8c0"/><rect x="60" y="57" width="15" height="18" fill="#84b8c0"/>
+ <ellipse cx="43" cy="107" rx="57" ry="12" fill="#3b6546" opacity=".5"/>
+ <rect x="0" y="30" width="86" height="75" rx="7" fill="#edf3f2" stroke="#8db8bf" stroke-width="3"/>
+ <rect x="30" y="8" width="26" height="97" rx="4" fill="#edf3f2" stroke="#8db8bf" stroke-width="3"/>
+ <path d="M43 31V61M28 46H58" stroke="#d45d63" stroke-width="10" stroke-linecap="round"/>
+ <rect x="11" y="57" width="15" height="18" fill="#84bec8"/><rect x="60" y="57" width="15" height="18" fill="#84bec8"/>
 </g>
 
 <!-- RESTAURANT -->
 <g transform="translate(67 382)" filter="url(#shadow)">
-  <rect x="0" y="40" width="86" height="64" rx="7" fill="#c87855" stroke="#e7b77d" stroke-width="3"/>
-  <path d="M-4 42H90" stroke="#f0c66e" stroke-width="18"/>
-  <path d="M8 42V58M28 42V58M48 42V58M68 42V58" stroke="#fff1d0" stroke-width="10"/>
-  <rect x="30" y="68" width="25" height="36" fill="#704a3a"/>
+ <ellipse cx="43" cy="106" rx="56" ry="11" fill="#3b6546" opacity=".5"/>
+ <rect x="0" y="40" width="86" height="64" rx="7" fill="#c97855" stroke="#efbd82" stroke-width="3"/>
+ <path d="M-4 42H90" stroke="#f0c66e" stroke-width="18"/>
+ <path d="M8 42V58M28 42V58M48 42V58M68 42V58" stroke="#fff1d0" stroke-width="10"/>
+ <rect x="30" y="68" width="25" height="36" fill="#704a3a"/>
 </g>
 
 <!-- SCHOOL -->
 <g transform="translate(257 180)" filter="url(#shadow)">
-  <path d="M0 35L45 2L90 35V108H0Z" fill="#d8c47b" stroke="#f0df9a" stroke-width="3"/>
-  <path d="M-7 36L45 0L97 36L90 44L45 11L0 44Z" fill="#557f9e"/>
-  <g fill="#8abcc2"><rect x="13" y="52" width="13" height="19"/><rect x="38" y="52" width="13" height="19"/><rect x="63" y="52" width="13" height="19"/></g>
-  <rect x="38" y="77" width="14" height="31" fill="#704a3a"/>
+ <ellipse cx="45" cy="110" rx="58" ry="12" fill="#3b6546" opacity=".5"/>
+ <path d="M0 35L45 2L90 35V108H0Z" fill="#d8c47b" stroke="#f0df9a" stroke-width="3"/>
+ <path d="M-7 36L45 0L97 36L90 44L45 11L0 44Z" fill="#557f9e"/>
+ <g fill="#8abcc2"><rect x="13" y="52" width="13" height="19"/><rect x="38" y="52" width="13" height="19"/><rect x="63" y="52" width="13" height="19"/></g>
+ <rect x="38" y="77" width="14" height="31" fill="#704a3a"/>
 </g>
 
-<!-- TANYSSU welcome camp (no building) -->
-<g transform="translate(177 980)" filter="url(#shadow)">
-  <path d="M38 0L78 72H-2Z" fill="#bd6f54" stroke="#f0c080" stroke-width="3"/>
-  <path d="M38 0L38 72" stroke="#f5d7a0" stroke-width="3"/>
-  <path d="M18 72H58" stroke="#d99c60" stroke-width="8" stroke-linecap="round"/>
-</g>
-
-<!-- decorative Kazakh-inspired ornaments -->
-<g fill="none" stroke="#d9a95d" stroke-width="2" opacity=".28">
- <path d="M22 310q18-18 36 0t36 0t36 0"/>
- <path d="M300 880q18-18 36 0t36 0t36 0"/>
- <circle cx="36" cy="670" r="5"/><circle cx="394" cy="350" r="5"/><circle cx="35" cy="1050" r="5"/>
-</g>
-
-<!-- route under Flutter's interactive buttons -->
-<path d="M215 1035 C205 950 125 930 105 835 S220 700 320 635 S190 515 110 435 S205 310 300 235" fill="none" stroke="#d9a95d" stroke-width="3" stroke-dasharray="2 16" stroke-linecap="round" opacity=".5"/>
-
-<!-- labels belong to the map art; Flutter repeats them cleanly beneath buildings -->
-<g font-family="sans-serif" text-anchor="middle" fill="#dcebe9">
- <text x="105" y="948" font-size="18" font-weight="800">ҮЙ</text>
- <text x="320" y="748" font-size="18" font-weight="800">АУРУХАНА</text>
- <text x="110" y="548" font-size="18" font-weight="800">ТАМАҚ</text>
- <text x="300" y="348" font-size="18" font-weight="800">МЕКТЕП</text>
+<!-- MAP LABELS -->
+<g font-family="sans-serif" text-anchor="middle" fill="#173827" stroke="#eaf2d5" stroke-width="3" paint-order="stroke" font-weight="900">
+ <text x="105" y="930" font-size="18">ҮЙ</text>
+ <text x="320" y="735" font-size="18">АУРУХАНА</text>
+ <text x="110" y="545" font-size="18">ТАМАҚ</text>
+ <text x="300" y="345" font-size="18">МЕКТЕП</text>
+ <text x="215" y="1100" font-size="18">ТАНЫСУ</text>
 </g>
 
 <!-- compass -->
-<g transform="translate(28 34)">
- <circle cx="20" cy="20" r="19" fill="#0b2233" stroke="#d9a95d" stroke-width="2"/>
- <path d="M20 7L24 20L20 17L16 20Z" fill="#d9a95d"/>
- <text x="20" y="34" text-anchor="middle" font-size="8" fill="#dcebe9" font-family="sans-serif" font-weight="800">N</text>
+<g transform="translate(24 28)" filter="url(#shadow)">
+ <circle cx="20" cy="20" r="19" fill="#f1e3b8" stroke="#755735" stroke-width="2"/>
+ <path d="M20 7L25 23L20 18L15 23Z" fill="#8d5f38"/>
+ <text x="20" y="34" text-anchor="middle" font-size="8" fill="#59462f" font-family="sans-serif" font-weight="900">N</text>
 </g>
 </svg>
