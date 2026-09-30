@@ -36,7 +36,7 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
         minScale:.9,maxScale:1.6,boundaryMargin:const EdgeInsets.symmetric(vertical:80,horizontal:20),
         child:SizedBox(width:430,height:774,child:Stack(children:[
           Positioned.fill(child:SvgPicture.asset('assets/map/qazaqsha_map.svg',fit:BoxFit.cover,semanticsLabel:'Qazaqsha оқу картасы')),
-          ...List.generate(topics.length,_topicNode),
+          ...List.generate(topics.length > 5 ? 5 : topics.length,_topicNode),
         ])),
       )),
       SafeArea(child:Padding(
@@ -80,7 +80,12 @@ class _LessonMapScreenState extends State<LessonMapScreen> {
 
   Future<void> _openTopic(int index) async {
     final t=topics[index];
-    await Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:t.title,level:t.level,lessonNumber:1)));
+    var next=1;
+    for(var n=1;n<=4;n++){
+      if(grade(t.title,n)<3){next=n;break;}
+      next=5;
+    }
+    await Navigator.push(context,MaterialPageRoute(builder:(_)=>LessonScreen(topic:t.title,level:t.level,lessonNumber:next)));
     _load();
   }
 
