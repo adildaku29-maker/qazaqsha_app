@@ -1,27 +1,42 @@
-# Qazaqsha Kazakh Whisper ASR
+# Qazaqsha Content Server
 
-Qazaqsha uses shyngys879/kazakh-whisper-large-v3-turbo on the backend instead of Android's generic speech recognition.
+Отдельный сервер контента для Qazaqsha.
 
-Windows PowerShell:
+## Архитектура
+- Flutter: UI, карта и локальная пользовательская сессия.
+- Content Server: FastAPI API + админ-панель.
+- Database: SQLite для разработки, PostgreSQL для production.
+- Whisper Server: отдельный независимый ASR-сервис.
 
-    cd backend
-    py -3.11 -m venv .venv
-    .\.venv\Scripts\Activate.ps1
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
+## Public API
+- GET /health
+- GET /api/topics
+- GET /api/topics/{slug}/lessons/{number}
+- POST /api/users/sync
+- POST /api/progress
 
-Start:
+## Admin API
+- POST /api/auth/login
+- GET /api/admin/stats
+- GET /api/admin/topics
+- GET /api/admin/lessons?topic_id=...
+- GET/POST/PUT/DELETE /api/admin/questions
+- GET /api/admin/users
+- GET /admin
 
-    uvicorn asr_server:app --host 0.0.0.0 --port 8000
+## Запуск
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+$env:ADMIN_USERNAME="admin"
+$env:ADMIN_PASSWORD="change-me-now"
+$env:JWT_SECRET="long-random-secret"
+python seed.py
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
 
-The first start downloads the model (about 1.62 GB) from Hugging Face. The model card recommends 16 kHz audio and language kk / task transcribe. CUDA is used automatically when available.
+Админка: http://127.0.0.1:8001/admin
 
-Health check:
-
-    http://127.0.0.1:8000/health
-
-Android emulator uses http://10.0.2.2:8000 by default.
-
-For a physical Android phone, use:
-
-    flutter run --dart-define=ASR_URL=http://YOUR_PC_IP:8000
+Для постоянного сервера используем Docker Compose. В production заменить SQLite на PostgreSQL и поставить HTTPS/reverse proxy. Секреты не коммитить.
