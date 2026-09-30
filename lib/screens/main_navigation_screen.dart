@@ -27,7 +27,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>{
         _Profile(profile:p),
       ];
       return Scaffold(
-        body:SafeArea(child:pages[tab]),
+        body:pages[tab],
         bottomNavigationBar:NavigationBar(
           selectedIndex:tab,onDestinationSelected:(i)=>setState(()=>tab=i),
           destinations:[
