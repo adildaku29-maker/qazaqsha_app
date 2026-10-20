@@ -18,7 +18,7 @@ class _LessonsScreenState extends State<LessonsScreen>{
   Future<void> _load()async{
     grades=await LessonDatabase.instance.grades();
     try{
-      topicItems=await ContentService.instance.fetchTopics(forceRefresh:true);
+      topicItems=await ContentService.instance.fetchTopics();
     }catch(e){
       debugPrint('[QAZAQSHA][CONTENT] topics API unavailable: $e');
     }
