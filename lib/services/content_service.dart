@@ -179,7 +179,7 @@ class ContentService {
     final parsed = LessonPack(topic, words, translations, pairs, fills, speaking);
     if (!useFallback) return parsed;
 
-    final fallback = lessonFor(topic, lesson: lessonNumber.clamp(1, 4));
+    final fallback = lessonFor(topic, lesson: lessonNumber.clamp(1, 4).toInt());
     return LessonPack(
       topic,
       parsed.words.isEmpty ? fallback.words : parsed.words,
