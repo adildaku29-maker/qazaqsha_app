@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
@@ -9,8 +11,13 @@ import 'package:record/record.dart';
 class SpeechService {
   final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
+
   bool _isListening = false;
   void Function(String text)? _onText;
+  void Function(String text)? _onPartialText;
+  WebSocket? _socket;
+  StreamSubscription<Uint8List>? _audioSubscription;
+  final Completer<String?> _finalText = Completer<String?>();
 
   static const String serverUrl = String.fromEnvironment(
     'ASR_URL',
@@ -32,30 +39,41 @@ class SpeechService {
     return granted;
   }
 
-  Future<bool> listen({void Function(String text)? onText}) async {
+  Future<bool> listen({
+    void Function(String text)? onText,
+    void Function(String text)? onPartialText,
+  }) async {
     if (_isListening) return true;
 
     _onText = onText;
-    print('[QAZAQSHA][MIC] listen() started');
+    _onPartialText = onPartialText;
 
     final hasPermission = await _recorder.hasPermission();
     print('[QAZAQSHA][MIC] permission=$hasPermission');
     if (!hasPermission) {
-      _onText = null;
+      _clearCallbacks();
       return false;
     }
 
-    final directory = await getTemporaryDirectory();
-    final path =
-        '${directory.path}/qazaqsha_recording_${DateTime.now().millisecondsSinceEpoch}.wav';
-
-    print('[QAZAQSHA][MIC] recording path=$path');
-    print('[QAZAQSHA][MIC] calling AudioRecorder.start()');
-
     try {
-      await _recorder.start(
+      final wsUrl = Uri.parse(
+        serverUrl.replaceFirst('https://', 'wss://').replaceFirst(
+              'http://',
+              'ws://',
+            ) +
+            '/stream',
+      );
+
+      print('[QAZAQSHA][STREAM] connecting to $wsUrl');
+      _socket = await WebSocket.connect(
+        wsUrl.toString(),
+      ).timeout(const Duration(seconds: 10));
+
+      _socketSubscriptionSetup();
+
+      final audioStream = await _recorder.startStream(
         const RecordConfig(
-          encoder: AudioEncoder.wav,
+          encoder: AudioEncoder.pcm16bits,
           sampleRate: 16000,
           numChannels: 1,
           androidConfig: AndroidRecordConfig(
@@ -63,118 +81,147 @@ class SpeechService {
             manageBluetooth: false,
           ),
         ),
-        path: path,
       );
 
-      // Do not call isRecording() here. On some Android/record plugin
-      // combinations that platform Future can remain pending even though
-      // the native recorder has already started successfully.
+      _audioSubscription = audioStream.listen(
+        (chunk) {
+          final socket = _socket;
+          if (socket != null && socket.readyState == WebSocket.open) {
+            socket.add(chunk);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          print('[QAZAQSHA][STREAM] microphone stream error: $error');
+          if (!_finalText.isCompleted) {
+            _finalText.completeError(error, stack);
+          }
+        },
+      );
+
       _isListening = true;
-
-      print(
-        '[QAZAQSHA][MIC] AudioRecorder.start() SUCCESS '
-        'nativeRecording=true',
-      );
-
+      print('[QAZAQSHA][STREAM] microphone streaming to server');
       return true;
     } catch (e, stack) {
-      try {
-        final nativeRecording = await _recorder.isRecording();
-        if (nativeRecording) {
-          _isListening = true;
-          print(
-            '[QAZAQSHA][MIC] start() reported ERROR, '
-            'but native recorder is ACTIVE: $e',
-          );
-          return true;
-        }
-      } catch (stateError) {
-        print('[QAZAQSHA][MIC] failed to read native state: $stateError');
-      }
-
-      _isListening = false;
-      _onText = null;
-      print('[QAZAQSHA][MIC] AudioRecorder.start() ERROR: $e');
+      print('[QAZAQSHA][STREAM] start ERROR: $e');
       print(stack);
+      await _closeStream(sendCancel: true);
+      _clearCallbacks();
       rethrow;
     }
+  }
+
+  void _socketSubscriptionSetup() {
+    _socket!.listen(
+      (dynamic message) {
+        if (message is! String) return;
+
+        try {
+          final data = jsonDecode(message) as Map<String, dynamic>;
+          final type = data['type']?.toString();
+          final text = data['text']?.toString().trim() ?? '';
+
+          if (type == 'partial' && text.isNotEmpty) {
+            print('[QAZAQSHA][STREAM] partial: $text');
+            _onPartialText?.call(text);
+          } else if (type == 'final') {
+            print('[QAZAQSHA][STREAM] final: $text');
+            if (!_finalText.isCompleted) _finalText.complete(text);
+          } else if (type == 'error') {
+            final error = data['message']?.toString() ?? 'Unknown ASR error';
+            if (!_finalText.isCompleted) {
+              _finalText.completeError(Exception(error));
+            }
+          }
+        } catch (e) {
+          print('[QAZAQSHA][STREAM] invalid server message: $e');
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        print('[QAZAQSHA][STREAM] socket error: $error');
+        if (!_finalText.isCompleted) _finalText.completeError(error, stack);
+      },
+      onDone: () {
+        print('[QAZAQSHA][STREAM] socket closed');
+        if (!_finalText.isCompleted) _finalText.complete(null);
+      },
+      cancelOnError: false,
+    );
   }
 
   Future<String?> stop() async {
     if (!_isListening) return null;
 
-    print('[QAZAQSHA][MIC] stop()');
-    final path = await _recorder.stop();
-    _isListening = false;
-    print('[QAZAQSHA][MIC] recorder stopped: $path');
+    print('[QAZAQSHA][STREAM] stopping microphone');
+    await _audioSubscription?.cancel();
+    _audioSubscription = null;
 
-    if (path == null) {
-      _onText = null;
+    try {
+      await _recorder.stop();
+    } catch (e) {
+      print('[QAZAQSHA][MIC] stop warning: $e');
+    }
+
+    _isListening = false;
+
+    final socket = _socket;
+    if (socket == null || socket.readyState != WebSocket.open) {
+      await _closeStream();
+      _clearCallbacks();
       return null;
     }
 
+    socket.add(jsonEncode({'type': 'finish'}));
+
     try {
-      final text = await _sendToWhisper(path);
-      if (text != null && _onText != null) {
-        _onText!(text);
-      }
+      final text = await _finalText.future.timeout(
+        const Duration(seconds: 45),
+      );
+      if (text != null && text.isNotEmpty) _onText?.call(text);
       return text;
     } finally {
-      _onText = null;
-      final file = File(path);
-      if (await file.exists()) await file.delete();
+      await _closeStream();
+      _clearCallbacks();
     }
   }
 
-  Future<String?> _sendToWhisper(String path) async {
-    final file = File(path);
-    if (!await file.exists()) return null;
+  Future<void> _closeStream({bool sendCancel = false}) async {
+    await _audioSubscription?.cancel();
+    _audioSubscription = null;
 
-    print('[QAZAQSHA][ASR] uploading $path to $serverUrl/transcribe');
+    final socket = _socket;
+    _socket = null;
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$serverUrl/transcribe'),
-    );
-
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'file',
-        path,
-        filename: 'recording.wav',
-      ),
-    );
-
-    final response =
-        await request.send().timeout(const Duration(seconds: 45));
-    final body = await response.stream.bytesToString();
-
-    print(
-      '[QAZAQSHA][ASR] response=${response.statusCode} body=$body',
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Whisper server error ${response.statusCode}: $body',
-      );
+    if (socket != null) {
+      try {
+        if (sendCancel && socket.readyState == WebSocket.open) {
+          socket.add(jsonEncode({'type': 'cancel'}));
+        }
+        await socket.close();
+      } catch (_) {}
     }
 
-    final data = jsonDecode(body) as Map<String, dynamic>;
-    return data['text']?.toString().trim();
+    _isListening = false;
+  }
+
+  void _clearCallbacks() {
+    _onText = null;
+    _onPartialText = null;
   }
 
   Future<void> cancel() async {
     if (_isListening) {
-      print('[QAZAQSHA][MIC] cancel()');
-      final path = await _recorder.stop();
-      _isListening = false;
-      _onText = null;
-
-      if (path != null) {
-        final file = File(path);
-        if (await file.exists()) await file.delete();
+      print('[QAZAQSHA][STREAM] cancel()');
+      try {
+        await _audioSubscription?.cancel();
+        _audioSubscription = null;
+        await _recorder.stop();
+      } catch (e) {
+        print('[QAZAQSHA][STREAM] cancel warning: $e');
       }
     }
+
+    await _closeStream(sendCancel: true);
+    _clearCallbacks();
   }
 
   Future<void> speak(String text) async {
@@ -217,6 +264,7 @@ class SpeechService {
   }
 
   Future<void> dispose() async {
+    await cancel();
     await _recorder.dispose();
     await _player.dispose();
   }
