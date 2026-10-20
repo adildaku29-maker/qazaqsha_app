@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/lesson_content.dart';
+import '../services/content_service.dart';
 import '../services/speech_service.dart';
 import '../services/audio_service.dart';
 import '../services/storage_service.dart';
@@ -35,7 +36,23 @@ class _LessonScreenState extends State<LessonScreen>{
  String tx(String ru,String en,String kk)=>lang=='en'?en:lang=='kk'?kk:ru;
 
  @override void initState(){super.initState();exam=widget.lessonNumber==5?examFor(widget.topic):null;pack=widget.lessonNumber==5?lessonFor(widget.topic,lesson:1):lessonFor(widget.topic,lesson:widget.lessonNumber);_load();}
- Future<void> _load()async{profile=await UserProfileService().profile;await speech.init();if(mounted)setState((){});}
+ Future<void> _load()async{
+   try{
+     final remote=await ContentService.instance.fetchLesson(widget.topic,widget.lessonNumber);
+     if(remote!=null){
+       pack=remote.pack;
+       if(widget.lessonNumber==5){exam=remote.exam;}else{exam=null;}
+       print('[QAZAQSHA][CONTENT] loaded lesson from API: topic=${widget.topic} number=${widget.lessonNumber}');
+     }else{
+       print('[QAZAQSHA][CONTENT] no server content for ${widget.topic} lesson ${widget.lessonNumber}; using local fallback');
+     }
+   }catch(e){
+     print('[QAZAQSHA][CONTENT] API unavailable; using local fallback: $e');
+   }
+   profile=await UserProfileService().profile;
+   await speech.init();
+   if(mounted)setState((){});
+ }
  @override void dispose(){maxTimer?.cancel();ampTimer?.cancel();speech.cancel();speech.dispose();answer.dispose();super.dispose();}
 
  String norm(String s)=>s.toLowerCase().replaceAll('ё','е').replaceAll(RegExp(r'[.!?,;:—–-]'),' ').replaceAll(RegExp(r'\s+'),' ').trim();
