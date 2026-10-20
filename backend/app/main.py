@@ -237,7 +237,13 @@ def admin_topics(_:AdminUser=Depends(admin_required),session:Session=Depends(db)
 @app.post("/api/admin/topics")
 def create_topic(data:TopicIn,_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
     if session.query(Topic).filter_by(slug=data.slug).first(): raise HTTPException(409,"Slug already exists")
-    t=Topic(**data.model_dump());session.add(t);session.flush()
+    payload=data.model_dump()
+    required=payload.get("required_after")
+    if required:
+        parent=session.query(Topic).filter_by(slug=required).first()
+        if parent is None: parent=session.query(Topic).filter_by(title=required).first()
+        if parent is not None: payload["required_after"]=parent.slug
+    t=Topic(**payload);session.add(t);session.flush()
     for n in range(1,6):
         session.add(Lesson(topic_id=t.id,number=n,title="Экзамен" if n==5 else f"Урок {n}",kind="exam" if n==5 else "lesson"))
     session.commit();session.refresh(t);return {"id":t.id}
