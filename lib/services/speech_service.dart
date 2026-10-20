@@ -17,7 +17,7 @@ class SpeechService {
   void Function(String text)? _onPartialText;
   WebSocket? _socket;
   StreamSubscription<Uint8List>? _audioSubscription;
-  final Completer<String?> _finalText = Completer<String?>();
+  Completer<String?> _finalText = Completer<String?>();
 
   static const String serverUrl = String.fromEnvironment(
     'ASR_URL',
@@ -47,6 +47,7 @@ class SpeechService {
 
     _onText = onText;
     _onPartialText = onPartialText;
+    _finalText = Completer<String?>();
 
     final hasPermission = await _recorder.hasPermission();
     print('[QAZAQSHA][MIC] permission=$hasPermission');
