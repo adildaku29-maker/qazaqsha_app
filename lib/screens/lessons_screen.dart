@@ -21,12 +21,12 @@ class _LessonsScreenState extends State<LessonsScreen>{
       topicItems=await ContentService.instance.fetchTopics(forceRefresh:true);
     }catch(e){
       debugPrint('[QAZAQSHA][CONTENT] topics API unavailable: $e');
-      if(topicItems.isEmpty){
-        topicItems=topics.map((t)=>ContentTopic(
-          id:0,slug:t.title,title:t.title,subtitle:t.subtitle,emoji:t.emoji,
-          level:t.level,xp:t.xp,requiredAfter:t.requiredAfter,
-        )).toList();
-      }
+    }
+    if(topicItems.isEmpty){
+      topicItems=topics.map((t)=>ContentTopic(
+        id:0,slug:t.title,title:t.title,subtitle:t.subtitle,emoji:t.emoji,
+        level:t.level,xp:t.xp,requiredAfter:t.requiredAfter,
+      )).toList();
     }
     if(mounted)setState((){});
   }
@@ -78,7 +78,7 @@ class _LessonsScreenState extends State<LessonsScreen>{
   }
 
   Widget _lesson(int ti,int n){
-    final topic=topics[ti];
+    final topic=topicItems[ti];
     final g=grade(topic.title,n);
     final open=unlocked(ti,n);
     return Material(
