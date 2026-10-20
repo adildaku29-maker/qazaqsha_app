@@ -110,12 +110,12 @@ class ContentService {
       final first = await _getLessonJson(topic.slug, 1);
       final packSource = first ?? current;
       return RemoteLessonContent(
-        pack: _toLessonPack(topic.title, packSource),
-        exam: _toExamPack(current),
+        pack: _toLessonPack(topic.title, packSource, lessonNumber: 1),
+        exam: _toExamPack(topic.title, current),
       );
     }
 
-    return RemoteLessonContent(pack: _toLessonPack(topic.title, current));
+    return RemoteLessonContent(pack: _toLessonPack(topic.title, current, lessonNumber: lessonNumber));
   }
 
   Future<Map<String, dynamic>?> _getLessonJson(String slug, int number) async {
@@ -129,7 +129,7 @@ class ContentService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  LessonPack _toLessonPack(String topic, Map<String, dynamic> json) {
+  LessonPack _toLessonPack(String topic, Map<String, dynamic> json, {int lessonNumber = 1, bool useFallback = true}) {
     final words = ((json['vocabulary'] as List<dynamic>?) ?? const [])
         .whereType<Map<String, dynamic>>()
         .map((word) => LessonWord(
@@ -176,16 +176,28 @@ class ContentService {
       }
     }
 
-    return LessonPack(topic, words, translations, pairs, fills, speaking);
+    final parsed = LessonPack(topic, words, translations, pairs, fills, speaking);
+    if (!useFallback) return parsed;
+
+    final fallback = lessonFor(topic, lesson: lessonNumber.clamp(1, 4));
+    return LessonPack(
+      topic,
+      parsed.words.isEmpty ? fallback.words : parsed.words,
+      parsed.translations.isEmpty ? fallback.translations : parsed.translations,
+      parsed.pairs.isEmpty ? fallback.pairs : parsed.pairs,
+      parsed.fills.isEmpty ? fallback.fills : parsed.fills,
+      parsed.speaking.isEmpty ? fallback.speaking : parsed.speaking,
+    );
   }
 
-  ExamPack _toExamPack(Map<String, dynamic> json) {
-    final pack = _toLessonPack('', json);
+  ExamPack _toExamPack(String topic, Map<String, dynamic> json) {
+    final pack = _toLessonPack(topic, json, useFallback: false);
+    final fallback = examFor(topic)!;
     return ExamPack(
-      pack.translations,
-      pack.pairs,
-      pack.fills,
-      pack.speaking,
+      pack.translations.isEmpty ? fallback.translations : pack.translations,
+      pack.pairs.isEmpty ? fallback.pairs : pack.pairs,
+      pack.fills.isEmpty ? fallback.fills : pack.fills,
+      pack.speaking.isEmpty ? fallback.speaking : pack.speaking,
     );
   }
 }
