@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../data/lesson_content.dart';
+import '../services/content_service.dart';
 import '../services/lesson_database.dart';
 import 'lesson_screen.dart';
 
@@ -12,14 +13,26 @@ class LessonsScreen extends StatefulWidget {
 
 class _LessonsScreenState extends State<LessonsScreen>{
   Map<String,int> grades={};
+  List<ContentTopic> topicItems=[];
   @override void initState(){super.initState();_load();}
   Future<void> _load()async{
     grades=await LessonDatabase.instance.grades();
+    try{
+      topicItems=await ContentService.instance.fetchTopics(forceRefresh:true);
+    }catch(e){
+      debugPrint('[QAZAQSHA][CONTENT] topics API unavailable: $e');
+      if(topicItems.isEmpty){
+        topicItems=topics.map((t)=>ContentTopic(
+          id:0,slug:t.title,title:t.title,subtitle:t.subtitle,emoji:t.emoji,
+          level:t.level,xp:t.xp,requiredAfter:t.requiredAfter,
+        )).toList();
+      }
+    }
     if(mounted)setState((){});
   }
   int grade(String topic,int n)=>grades['${topic}_u$n']??0;
   bool unlocked(int ti,int lesson){
-    final topic=topics[ti];
+    final topic=topicItems[ti];
     if(lesson>1)return grade(topic.title,lesson-1)>=3;
     final required=topic.requiredAfter;
     if(required==null)return ti==0;
@@ -36,13 +49,13 @@ class _LessonsScreenState extends State<LessonsScreen>{
         const SizedBox(height:6),
         Text(tr('Все уроки и твой результат','All lessons and your results','Барлық сабақтар және нәтижелер'),style:const TextStyle(color:AppColors.muted)),
         const SizedBox(height:22),
-        ...List.generate(topics.length,_topic),
+        ...List.generate(topicItems.length,_topic),
       ],
     ),
   );
 
   Widget _topic(int ti){
-    final topic=topics[ti];
+    final topic=topicItems[ti];
     return Container(
       margin:const EdgeInsets.only(bottom:18),
       decoration:BoxDecoration(color:AppColors.card,borderRadius:BorderRadius.circular(22)),
