@@ -14,7 +14,7 @@ class LessonsScreen extends StatefulWidget {
 class _LessonsScreenState extends State<LessonsScreen>{
   Map<String,int> grades={};
   List<ContentTopic> topicItems=[];
-  @override void initState(){super.initState();_load();}
+  @override void initState(){super.initState();topicItems=topics.map((t)=>ContentTopic(id:0,slug:t.title,title:t.title,subtitle:t.subtitle,emoji:t.emoji,level:t.level,xp:t.xp,requiredAfter:t.requiredAfter)).toList();_load();}
   Future<void> _load()async{
     grades=await LessonDatabase.instance.grades();
     try{
