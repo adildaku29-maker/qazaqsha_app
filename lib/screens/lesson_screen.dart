@@ -75,7 +75,12 @@ class _LessonScreenState extends State<LessonScreen>{
      if(!mounted||!listening||stopping||recognizing||checking)return;checking=true;
      try{final a=await speech.getRecorderAmplitude();if(!mounted||!listening||stopping||recognizing)return;final s=started;if(s==null)return;final now=DateTime.now();if(now.difference(s)<const Duration(milliseconds:700))return;if(a>-42)lastSpeech=now;else if(now.difference(lastSpeech??s)>=const Duration(milliseconds:900))await stopListen(target);}catch(_){}finally{checking=false;}
    });
-   try{await speech.listen(onText:(text){if(text.trim().isNotEmpty)_recognized(text,target);});}
+   try{
+     await speech.listen(onPartialText:(text){
+       if(!mounted||!listening||stopping||recognizing)return;
+       setState(()=>feedback=tx('Слышу: ','Hearing: ','Естіліп тұр: ')+text);
+     });
+   }
    catch(e){maxTimer?.cancel();ampTimer?.cancel();if(mounted)setState((){listening=false;recognizing=false;feedback=tx('Ошибка микрофона','Microphone error','Микрофон қатесі');});}
  }
  Future<void> stopListen(String target)async{
