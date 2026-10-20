@@ -1,4 +1,4 @@
-from app.main import SessionLocal, Topic, Lesson, Question
+from app.main import SessionLocal, Topic, Lesson, Question, VocabularyItem
 import json
 
 TOPICS=[
@@ -17,9 +17,30 @@ TOPICS=[
 ("qazaqstan","Қазақстан","Ел туралы сөйлесу","🇰🇿","B1",180,12,"sayakhat"),
 ]
 
-def add_question(s,lesson,kind,kk,ru="",en="",options=None,correct=None,answer="",audio="",order=0):
-    if s.query(Question).filter_by(lesson_id=lesson.id,sort_order=order).first(): return
-    s.add(Question(lesson_id=lesson.id,type=kind,prompt_kk=kk,prompt_ru=ru,prompt_en=en,options_json=json.dumps(options or [],ensure_ascii=False),correct_index=correct,answer_kk=answer,audio_key=audio,sort_order=order,active=True))
+def add_question(s,lesson,kind,kk,ru="",options=None,correct=None,answer="",audio="",order=0,en=""):
+    q=s.query(Question).filter_by(lesson_id=lesson.id,sort_order=order).first()
+    if q is None:
+        q=Question(lesson_id=lesson.id,sort_order=order)
+        s.add(q)
+    q.type=kind
+    q.prompt_kk=kk
+    q.prompt_ru=ru
+    q.prompt_en=en
+    q.options_json=json.dumps(options or [],ensure_ascii=False)
+    q.correct_index=correct
+    q.answer_kk=answer
+    q.audio_key=audio
+    q.active=True
+
+def add_vocabulary(s,lesson,kk,ru,en,audio,order):
+    w=s.query(VocabularyItem).filter_by(lesson_id=lesson.id,sort_order=order).first()
+    if w is None:
+        w=VocabularyItem(lesson_id=lesson.id,sort_order=order)
+        s.add(w)
+    w.kk=kk
+    w.ru=ru
+    w.en=en
+    w.audio_key=audio
 
 def run():
     with SessionLocal() as s:
@@ -129,6 +150,89 @@ def run():
           ("speaking","Сау болыңыз, көріскенше!","До свидания, до встречи!",[],None,"","exam_goodbye"),
         ]
         for i,x in enumerate(data): add_question(s,l,*x,order=i)
+
+        # Vocabulary copied from the existing Flutter lesson content.
+        tanysu_words={
+          1:[
+            ("Сәлем!","Привет!","Hello!","salem"),
+            ("Сәлеметсіз бе?","Здравствуйте!","Hello!","salemetsiz_be"),
+            ("Қайырлы таң!","Доброе утро!","Good morning!","qaiyrly_tan"),
+            ("Қайырлы күн!","Добрый день!","Good afternoon!","qaiyrly_kun"),
+            ("Қайырлы кеш!","Добрый вечер!","Good evening!","qaiyrly_kesh"),
+            ("Мұғалім","Учитель","Teacher","mugalim"),
+            ("Достар","Друзья","Friends","dostar"),
+            ("Алма","Яблоко","Apple","alma"),
+            ("Қалай","Как","How","qalai"),
+          ],
+          2:[
+            ("Қалай?","Как?","How?","qalai"),("Жақсы","Хорошо","Good","zhaqsy"),
+            ("Керемет","Прекрасно / Отлично","Great / Excellent","keremet"),("Рақмет","Спасибо","Thank you","raqmet"),
+            ("Қал қалай?","Как дела?","How are you?","qal_qalai"),("Өзің ше?","А ты? / А вы?","And you?","ozin_she"),
+            ("Жаман","Плохо","Bad","zhaman"),("Қала","Город","City","qala"),("Сен","Ты","You","sen"),
+          ],
+          3:[
+            ("Ат / Есім","Имя","Name","at_esim"),("Менің атым...","Меня зовут...","My name is...","menin_atym"),
+            ("Көріскенше!","До встречи!","See you!","koriskenshe"),("Сау болыңыз!","До свидания!","Goodbye!","sau_bolynyz"),
+            ("Танысқаныма қуаныштымын","Рад(а) знакомству!","Nice to meet you!","tanysqanyma_quanyshtymyn"),
+            ("Қаласың","Остаёшься / останешься","Stay / remain","qalasyn"),("Дос","Друг","Friend","dos"),("Кеш","Вечер / поздно","Evening / late","kesh"),
+          ],
+          4:[
+            ("Қалаймын","Хочу","I want","qalaimyn"),("Алма","Яблоко","Apple","alma"),
+            ("Көргім келеді","Хочу увидеть","I want to see","korgim_keledi"),("Барлық","Все","All","barlyq"),
+            ("Бүгін","Сегодня","Today","bugin"),("Ертең","Завтра","Tomorrow","erten"),
+          ],
+        }
+        generic_words=[("сөз","слово","word","default"),("жақсы","хорошо","good","default"),("тақырып","тема","topic","default")]
+        for topic in s.query(Topic).all():
+            topic_lessons={x.number:x for x in s.query(Lesson).filter_by(topic_id=topic.id).all()}
+            if topic.slug=="tanysu":
+                for n,words in tanysu_words.items():
+                    for i,(kk,ru,en,audio) in enumerate(words):
+                        add_vocabulary(s,topic_lessons[n],kk,ru,en,audio,i)
+                continue
+
+            for n in range(1,5):
+                lesson=topic_lessons[n]
+                for i,(kk,ru,en,audio) in enumerate(generic_words):
+                    add_vocabulary(s,lesson,kk,ru,en,audio,i)
+                generic_questions=[
+                  ("translation","сөз","Как переводится слово «сөз»?",["слово","Друг","Город","Спасибо"],0,"слово","default"),
+                  ("translation","жақсы","Как переводится слово «жақсы»?",["хорошо","Друг","Город","Спасибо"],0,"хорошо","default"),
+                  ("translation","тақырып","Как переводится слово «тақырып»?",["тема","Друг","Город","Спасибо"],0,"тема","default"),
+                  ("matching","сөз","Слово",[],None,"слово","default"),
+                  ("matching","жақсы","Хорошо",[],None,"хорошо","default"),
+                  ("matching","тақырып","Тема",[],None,"тема","default"),
+                  ("fill","Бұл _____.","Слово",["сөз","жақсы","тақырып"],0,"сөз","default"),
+                  ("fill","Бұл _____.","Хорошо",["сөз","жақсы","тақырып"],1,"жақсы","default"),
+                  ("fill","Бұл _____.","Тема",["сөз","жақсы","тақырып"],2,"тақырып","default"),
+                  ("speaking","сөз","Слово",[],None,"","default"),
+                  ("speaking","жақсы","Хорошо",[],None,"","default"),
+                  ("speaking","тақырып","Тема",[],None,"","default"),
+                ]
+                for i,x in enumerate(generic_questions):
+                    kind,kk,ru,options,correct,answer,audio=x
+                    add_question(s,lesson,kind,kk,ru,options,correct,answer,audio,order=i)
+            exam=topic_lessons[5]
+            exam_questions=[
+              ("translation","сөз","Как переводится «сөз»?",["слово","город","вода","дом"],0,"слово","default"),
+              ("translation","жақсы","Как переводится «жақсы»?",["плохо","хорошо","завтра","учитель"],1,"хорошо","default"),
+              ("translation","мектеп","Как переводится «мектеп»?",["школа","ресторан","дом","друг"],0,"школа","default"),
+              ("translation","тамақ","Что означает «тамақ»?",["еда","врач","тетрадь","работа"],0,"еда","default"),
+              ("translation","үй","Как переводится «үй»?",["школа","дом","еда","город"],1,"дом","default"),
+              ("matching","сөз","Слово",[],None,"слово","default"),
+              ("matching","жақсы","Хорошо",[],None,"хорошо","default"),
+              ("matching","мектеп","Школа",[],None,"школа","default"),
+              ("matching","тамақ","Еда",[],None,"еда","default"),
+              ("matching","үй","Дом",[],None,"дом","default"),
+              ("fill","Бұл _____.","Это слово.",["сөз","үй","тамақ","мектеп"],0,"сөз","default"),
+              ("fill","Мен ____.","Я в школе.",["үйде","мектепте","тамақ","сөз"],1,"мектепте","default"),
+              ("fill","Менің ____ жақсы.","Мой дом хороший.",["үйім","мектебім","тамақ","сөз"],0,"үйім","default"),
+              ("speaking","Сәлем! Мен қазақша үйреніп жүрмін.","Привет! Я учу казахский.",[],None,"","default"),
+              ("speaking","Рақмет! Көріскенше!","Спасибо! До встречи!",[],None,"","default"),
+            ]
+            for i,x in enumerate(exam_questions):
+                kind,kk,ru,options,correct,answer,audio=x
+                add_question(s,exam,kind,kk,ru,options,correct,answer,audio,order=i)
 
         s.commit()
         print("Seed complete")
