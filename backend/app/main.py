@@ -11,7 +11,8 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, T
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 BASE_DIR=Path(__file__).resolve().parent
-DATABASE_URL=os.getenv("DATABASE_URL","sqlite:///./qazaqsha_content.db")
+DEFAULT_DATABASE_PATH=(BASE_DIR.parent / "qazaqsha_content.db").as_posix()
+DATABASE_URL=os.getenv("DATABASE_URL",f"sqlite:///{DEFAULT_DATABASE_PATH}")
 engine=create_engine(DATABASE_URL,connect_args={"check_same_thread":False} if DATABASE_URL.startswith("sqlite") else {})
 SessionLocal=sessionmaker(bind=engine,autocommit=False,autoflush=False)
 Base=declarative_base()
@@ -69,6 +70,16 @@ class Question(Base):
     audio_key=Column(String(160),default="")
     sort_order=Column(Integer,default=0)
     active=Column(Boolean,default=True,nullable=False)
+
+class VocabularyItem(Base):
+    __tablename__="vocabulary_items"
+    id=Column(Integer,primary_key=True)
+    lesson_id=Column(Integer,ForeignKey("lessons.id"),nullable=False,index=True)
+    kk=Column(String(255),nullable=False)
+    ru=Column(String(255),nullable=False)
+    en=Column(String(255),default="")
+    audio_key=Column(String(160),default="")
+    sort_order=Column(Integer,default=0)
 
 class Progress(Base):
     __tablename__="progress"
@@ -128,6 +139,13 @@ class QuestionIn(BaseModel):
     audio_key:str=""
     sort_order:int=0
     active:bool=True
+class VocabularyIn(BaseModel):
+    lesson_id:int
+    kk:str
+    ru:str
+    en:str=""
+    audio_key:str=""
+    sort_order:int=0
 
 app=FastAPI(title="Qazaqsha Content Server",version="1.0.0")
 
@@ -182,7 +200,8 @@ def public_lesson(slug:str,number:int,session:Session=Depends(db)):
     l=session.query(Lesson).filter_by(topic_id=t.id,number=number).first()
     if not l: raise HTTPException(404,"Lesson not found")
     qs=session.query(Question).filter_by(lesson_id=l.id,active=True).order_by(Question.sort_order,Question.id).all()
-    return {"topic":{"slug":t.slug,"title":t.title,"level":t.level},"lesson":{"number":l.number,"title":l.title,"kind":l.kind},"questions":[{"id":q.id,"type":q.type,"prompt_kk":q.prompt_kk,"prompt_ru":q.prompt_ru,"prompt_en":q.prompt_en,"options":json.loads(q.options_json or "[]"),"correct_index":q.correct_index,"answer_kk":q.answer_kk,"audio_key":q.audio_key,"sort_order":q.sort_order} for q in qs]}
+    words=session.query(VocabularyItem).filter_by(lesson_id=l.id).order_by(VocabularyItem.sort_order,VocabularyItem.id).all()
+    return {"topic":{"slug":t.slug,"title":t.title,"level":t.level,"emoji":t.emoji,"subtitle":t.subtitle,"xp":t.xp,"required_after":t.required_after},"lesson":{"id":l.id,"number":l.number,"title":l.title,"kind":l.kind},"vocabulary":[{"id":w.id,"kk":w.kk,"ru":w.ru,"en":w.en,"audio_key":w.audio_key,"sort_order":w.sort_order} for w in words],"questions":[{"id":q.id,"type":q.type,"prompt_kk":q.prompt_kk,"prompt_ru":q.prompt_ru,"prompt_en":q.prompt_en,"options":json.loads(q.options_json or "[]"),"correct_index":q.correct_index,"answer_kk":q.answer_kk,"audio_key":q.audio_key,"sort_order":q.sort_order} for q in qs]}
 
 @app.post("/api/users/sync")
 def sync_user(data:UserIn,session:Session=Depends(db)):
@@ -253,6 +272,28 @@ def delete_question(qid:int,_:AdminUser=Depends(admin_required),session:Session=
     q=session.get(Question,qid)
     if not q: raise HTTPException(404,"Question not found")
     session.delete(q);session.commit();return {"ok":True}
+
+@app.get("/api/admin/vocabulary")
+def admin_vocabulary(lesson_id:int,_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
+    return [{"id":w.id,"lesson_id":w.lesson_id,"kk":w.kk,"ru":w.ru,"en":w.en,"audio_key":w.audio_key,"sort_order":w.sort_order} for w in session.query(VocabularyItem).filter_by(lesson_id=lesson_id).order_by(VocabularyItem.sort_order,VocabularyItem.id)]
+
+@app.post("/api/admin/vocabulary")
+def create_vocabulary(data:VocabularyIn,_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
+    if not session.get(Lesson,data.lesson_id): raise HTTPException(404,"Lesson not found")
+    w=VocabularyItem(**data.model_dump());session.add(w);session.commit();session.refresh(w);return {"id":w.id}
+
+@app.put("/api/admin/vocabulary/{wid}")
+def update_vocabulary(wid:int,data:VocabularyIn,_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
+    w=session.get(VocabularyItem,wid)
+    if not w: raise HTTPException(404,"Vocabulary item not found")
+    for k,v in data.model_dump().items(): setattr(w,k,v)
+    session.commit();return {"ok":True}
+
+@app.delete("/api/admin/vocabulary/{wid}")
+def delete_vocabulary(wid:int,_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
+    w=session.get(VocabularyItem,wid)
+    if not w: raise HTTPException(404,"Vocabulary item not found")
+    session.delete(w);session.commit();return {"ok":True}
 
 @app.get("/api/admin/users")
 def admin_users(_:AdminUser=Depends(admin_required),session:Session=Depends(db)):
