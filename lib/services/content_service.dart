@@ -66,7 +66,7 @@ class ContentService {
 
   Uri _uri(String path) => Uri.parse('${baseUrl.replaceFirst(RegExp(r'/+$'), '')}$path');
 
-  Future<List<ContentTopic>> fetchTopics({bool forceRefresh = false}) async {
+  Future<List<ContentTopic>> fetchTopics() async {
     final response = await http
         .get(_uri('/api/topics'))
         .timeout(const Duration(seconds: 8));
